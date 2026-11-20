@@ -6,7 +6,7 @@ import {
   type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard as Board, type ProjectChoice, type ProjectPortraits, type Proposal,
 } from "@/lib/project";
 import { COLOMBO, dateLabel, DURATIONS, MAX_NAME_LENGTH, timeLabel, TOKYO, uuid, wallTime, zoneName, type Language } from "@/lib/schedule";
-import { ArrowDown, ArrowUp, CalendarPlus, ChevronRight, Link2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight } from "lucide-react";
 import { Ink } from "./editorial-ink";
 import { IslandFooter, IslandGuide, IslandHero } from "./island-entry";
 import { Field, getDeviceZone } from "./schedule-app";
@@ -33,14 +33,15 @@ type PortraitSets = Partial<Record<ProjectAvatarStyle, ProjectPortraits>>;
 type Feedback = { message: Message; error?: boolean };
 type MeetingDialog = { action: "confirm" | "delete"; item: Proposal };
 type ProposalInput = { title: string; meetingUrl: string; windows: DraftWindow[]; zone: string; duration: number; respondentAvatars: ProjectAvatar[] };
+type GuestEntry = { availableAvatars: ProjectAvatar[] };
 
 const copy = {
   ja: {
-    access: "参加リンクから開く", inviteRequired: "主催者から届いた自分専用の参加リンクを開いてください。",
-    signIn: "主催者としてログイン", loading: "読み込み中…", refresh: "再読み込み",
+    inviteRequired: "ページを開き直してください。", manage: "日程の管理", signIn: "ログイン", loading: "読み込み中…", refresh: "再読み込み",
     unavailable: "読み込みに失敗しました。もう一度お試しください。", saving: "保存中…",
     choose: "キャラクターを選択", pick: "このキャラクターで回答", portrait: "回答者", name: "表示する名前",
-    chooseHint: "この参加リンクで使う自分のアイコンを選んでください。",
+    chooseHint: "キャラクターを選んで、候補日時に回答できます。", character: "キャラクター",
+    noGuestAvatars: "いま選べるキャラクターはありません。",
     taken: "使用中", selected: "選択中", unnamed: "名前を入力", portraitFailed: "回答者の画像を読み込めませんでした。",
     avatarTaken: "その画像は別の人が選びました。ほかの画像を選んでください。",
     full: "すべての画像が使用中です。イニシャルで回答できます。", useInitial: "イニシャルで進む",
@@ -76,11 +77,11 @@ const copy = {
     forbidden: "この操作は提案者か主催者が行えます。", missing: "候補日時が見つかりません。",
   },
   en: {
-    access: "Open your invitation", inviteRequired: "Use the personal invitation link sent by the organizer.",
-    signIn: "Sign in as organizer", loading: "Loading…", refresh: "Reload",
+    inviteRequired: "Please reopen this page.", manage: "Manage schedules", signIn: "Sign in", loading: "Loading…", refresh: "Reload",
     unavailable: "Unable to load. Please try again.", saving: "Saving…",
     choose: "Choose a character", pick: "Respond with this character", portrait: "Respondent", name: "Display name",
-    chooseHint: "Choose your own portrait for this invitation link.",
+    chooseHint: "Choose a character to respond to proposed times.", character: "Character",
+    noGuestAvatars: "No characters are available to select right now.",
     taken: "In use", selected: "Selected", unnamed: "Enter a name", portraitFailed: "The portraits could not load.",
     avatarTaken: "Someone else chose that portrait. Please choose another one.",
     full: "All portraits are in use. You can respond with your initials.", useInitial: "Continue with initials",
@@ -356,10 +357,10 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
       </div>
       <div className="meeting-heading-side">
         <div className="meeting-heading-people">
-          <div className="meeting-proposer">
+          {!board.guest && <div className="meeting-proposer">
             <span><Ink text={t.proposer} /></span>
             <Avatar src={photo(sets, meeting.proposerAvatar)} name={proposer} showName={Boolean(meeting.proposerAvatar && customPortrait(meeting.proposerAvatar))} />
-          </div>
+          </div>}
           <div className="meeting-heading-audience">
             <span><Ink text={t.audience} /></span>
             <AudienceIcons board={board} sets={sets} language={language} meeting={meeting} />
@@ -417,17 +418,17 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
   </article>;
 }
 
-function signInForMeeting(signInPath: string, meeting: string | null) {
-  if (!meeting || !uuid.test(meeting)) return signInPath;
+function managementSignIn(signInPath: string, meeting: string | null) {
   const url = new URL(signInPath, "https://app.local");
-  url.searchParams.set("return_to", "/#meeting=" + meeting);
+  url.searchParams.set("return_to", "/?manage=1" + (meeting ? "#meeting=" + meeting : ""));
   return url.pathname + url.search;
 }
 
 export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const [language, setLanguage] = useState<Language>("ja");
-  const [entryRole, setEntryRole] = useState<"respondent" | "organizer">("respondent");
   const [board, setBoard] = useState<Board | null>(null);
+  const [guestEntry, setGuestEntry] = useState<GuestEntry | null>(null);
+  const [manageEntry, setManageEntry] = useState(false);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<Feedback>();
   const [busy, setBusy] = useState(false);
@@ -460,19 +461,21 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const votesInFlight = useRef(new Set<string>());
   const nextWindowKey = useRef(1);
   const content = useRef<HTMLElement>(null);
-  const entry = useRef<HTMLElement>(null);
   const casting = useRef<HTMLElement>(null);
   const confirmation = useRef<HTMLDialogElement>(null);
   const newProposalDraft = useRef<ProposalInput | null>(null);
   const t = copy[language];
   const profile = board?.profile;
   const signedIn = Boolean(board);
+  const publicChooser = !board && guestEntry !== null;
+  const avatarChoices = publicChooser ? guestEntry.availableAvatars : AVATAR_IDS;
+  const publicPortraits = publicChooser && avatarChoices.length > 0;
   const allTaken = board?.takenAvatars.length === AVATAR_IDS.length;
-  const chooseRespondent = signedIn && (editingRespondent || (!profile && !initials));
+  const chooseRespondent = publicChooser || (signedIn && (editingRespondent || (!profile && !initials)));
   const ownName = localName(profile?.displayName ?? board?.memberName ?? t.organizer, language);
   const activePortraits = sets.kirie;
-  const selectedTaken = Boolean(chosen && board?.takenAvatars.includes(chosen));
-  const requiresName = Boolean(chosen && customPortrait(chosen));
+  const selectedTaken = Boolean(chosen && (board?.takenAvatars.includes(chosen) || (publicChooser && !avatarChoices.includes(chosen))));
+  const requiresName = Boolean(board && chosen && customPortrait(chosen));
   const readyWindows = windows.filter(window => window.date && window.from);
   const preview = readyWindows.length ? expandCandidateWindows(readyWindows, zone, duration) : undefined;
   const meetings = new Map<string, Proposal[]>();
@@ -502,19 +505,23 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const refresh = useCallback(async () => {
     const revision = ++readRevision.current;
     const session = authRevision.current;
-    const next = await boardRequest<Board>(token.current);
+    const managing = new URLSearchParams(location.search).get("manage") === "1";
+    const next = await boardRequest<Board>(token.current, undefined, managing ? "/api/project?manage=1" : "/api/project");
     if (session === authRevision.current && revision === readRevision.current) setBoard(next);
     return next;
   }, []);
 
   const openBoard = useCallback(async () => {
     const session = ++authRevision.current;
+    const managing = new URLSearchParams(location.search).get("manage") === "1";
     const parameters = new URLSearchParams(location.hash.slice(1));
     token.current = parameters.get("member") ?? "";
     const meeting = parameters.get("meeting");
     const target = meeting && uuid.test(meeting) ? meeting : null;
     votesInFlight.current.clear();
     setBoard(null);
+    setGuestEntry(null);
+    setManageEntry(managing);
     setLoading(true);
     setBusy(false);
     setFeedback(undefined);
@@ -545,6 +552,13 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     try {
       await refresh();
     } catch (error) {
+      if (session === authRevision.current && (error as Error).message === "inviteRequired" && !managing) {
+        const available = await boardRequest<GuestEntry>("", undefined, "/api/project?join=1").catch(() => null);
+        if (session === authRevision.current && available) {
+          setGuestEntry(available);
+          return;
+        }
+      }
       if (session === authRevision.current) setFeedback({ message: (error as Error).message as Message, error: true });
     } finally {
       if (session === authRevision.current) setLoading(false);
@@ -582,20 +596,20 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const wideLoaded = Boolean(sets.wide);
   const kirieLoaded = Boolean(sets.kirie);
   useEffect(() => {
-    if (!signedIn) return;
+    if (!signedIn && !publicPortraits) return;
     const session = authRevision.current;
     const required: ProjectAvatarStyle[] = [];
     if (!kirieLoaded) required.push("kirie");
     if (needsWide && !wideLoaded) required.push("wide");
     for (const art of required) {
-      const path = art === "kirie" ? "/api/project/portraits?style=kirie" : "/api/project/portraits";
+      const path = art === "kirie" ? "/api/project/portraits?style=kirie" + (signedIn ? "" : "&join=1") : "/api/project/portraits";
       void boardRequest<ProjectPortraits>(token.current, undefined, path).then(photos => {
         if (authRevision.current === session) setSets(old => ({ ...old, [art]: photos }));
       }).catch(() => {
         if (authRevision.current === session) setPortraitErrors(old => ({ ...old, [art]: true }));
       });
     }
-  }, [signedIn, needsWide, wideLoaded, kirieLoaded, portraitRetry]);
+  }, [signedIn, publicPortraits, needsWide, wideLoaded, kirieLoaded, portraitRetry]);
 
   useEffect(() => {
     if (signedIn && mode === "reply" && !chooseRespondent && linkedMeeting) {
@@ -776,6 +790,15 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     event.preventDefault();
     if (!chosen || selectedTaken || (requiresName && !displayName.trim())) return;
     const avatarStyle = chosen === "09" ? "wide" : "kirie";
+    if (publicChooser) {
+      const session = authRevision.current;
+      const result = await perform({ action: "join", avatar: chosen, avatarStyle, name: `${t.character} ${Number(chosen)}` }, "profileSaved");
+      if (!result && session === authRevision.current) {
+        const available = await boardRequest<GuestEntry>("", undefined, "/api/project?join=1").catch(() => null);
+        if (session === authRevision.current && available) setGuestEntry(available);
+      }
+      return;
+    }
     if (await perform({ action: "profile", avatar: chosen, avatarStyle, name: displayName }, "profileSaved")) {
       setBoard(previous => previous ? {
         ...previous,
@@ -858,101 +881,32 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
       try { localStorage.setItem("tagiri-schedule-language", lang); } catch {}
     }} />
     <main className="project-shell">
-      {!board ? <div className="renewed-landing">
-        <div className="island-landing-actions">
-          <section className="renewed-entry" ref={entry} tabIndex={-1} aria-labelledby="sl-entry-title"
-            aria-busy={loading || undefined}>
-            {!loading && feedback?.message === "inviteRequired" &&
-              <img className="island-entry-sticker" src="/project/island/envelope.webp" alt="" width={112} height={112} />}
-            <div className="renewed-entry-content">
-              {loading ? <>
-                  <h2 id="sl-entry-title"><Ink text={t.choose} /></h2>
-                  <p role="status"><Ink text={t.loading} /></p>
-                </>
-                : feedback?.message === "inviteRequired" ? <>
-                  <div className="renewed-roles" role="group" aria-label={language === "ja" ? "参加方法" : "Choose your role"}>
-                    <button type="button" aria-pressed={entryRole === "respondent"} onClick={() => setEntryRole("respondent")}><Link2 size={17} aria-hidden="true" /><Ink text={language === "ja" ? "参加する" : "I’m invited"} /></button>
-                    <button type="button" aria-pressed={entryRole === "organizer"} onClick={() => setEntryRole("organizer")}><CalendarPlus size={17} aria-hidden="true" /><Ink text={language === "ja" ? "主催する" : "I’m organizing"} /></button>
-                  </div>
-                  {entryRole === "respondent" ? <>
-                    <h2 id="sl-entry-title"><Ink text={t.choose} /></h2>
-                    <p><Ink text={language === "ja" ? "主催者から届いた参加リンクを開いて、キャラクターを選びます。" : "Open your personal invitation to choose a character."} /></p>
-                    <form className="renewed-invite" onSubmit={event => {
-                      event.preventDefault();
-                      const field = event.currentTarget.querySelector("input");
-                      if (!field) return;
-                      const invalidLink = language === "ja" ? "このプロジェクトの参加リンクを貼り付けてください。" : "Paste a personal invitation link for this project.";
-                      let member: string | null = null;
-                      let meeting = linkedMeeting;
-                      try {
-                        const invite = new URL(field.value.trim());
-                        if (invite.origin === location.origin && invite.pathname === "/") {
-                          const invitation = new URLSearchParams(invite.hash.slice(1));
-                          member = invitation.get("member");
-                          const invitedMeeting = invitation.get("meeting");
-                          if (invitedMeeting && uuid.test(invitedMeeting)) meeting = invitedMeeting;
-                        }
-                      } catch { /* The validation message below also covers an incomplete URL. */ }
-                      if (!member || !uuid.test(member)) {
-                        field.setCustomValidity(invalidLink);
-                        field.reportValidity();
-                        return;
-                      }
-                      const identity = new URLSearchParams({ member });
-                      if (meeting) identity.set("meeting", meeting);
-                      const fragment = "#" + identity.toString();
-                      if (location.hash === fragment) void openBoard();
-                      else location.hash = fragment;
-                    }}>
-                      <label htmlFor="sl-invite-address"><Ink text={language === "ja" ? "参加リンク" : "Invitation link"} /></label>
-                      <input id="sl-invite-address" type="url" inputMode="url" autoCapitalize="none" autoComplete="off" spellCheck={false}
-                        placeholder={language === "ja" ? "ここに参加リンクを貼り付け" : "Paste your invitation link"}
-                        required onInput={event => event.currentTarget.setCustomValidity("")} />
-                      <button className="project-primary" type="submit"><Ink text={language === "ja" ? "回答を開く" : "Open invitation"} /></button>
-                    </form>
-                  </> : <>
-                    <h2 id="sl-entry-title"><Ink text={t.propose} /></h2>
-                    <p><Ink text={language === "ja" ? "候補の時間帯と、回答をお願いするメンバーを選びます。" : "Choose time windows and the people you want to invite."} /></p>
-                    <a className="project-primary renewed-signin" href={signInForMeeting(signInPath, linkedMeeting)} target="_top"><Ink text={t.signIn} /></a>
-                  </>}
-                </> : <>
-                  <h2 id="sl-entry-title"><Ink text={t.access} /></h2>{status}
-                  <button type="button" className="project-secondary" onClick={openBoard}><Ink text={t.refresh} /></button>
-                </>}
-            </div>
-          </section>
-          {!loading && <div className="island-clock-card"><ProjectClocks language={language} /></div>}
-        </div>
-        {!loading && <>
-          <IslandHero language={language} onStart={() => {
-            entry.current?.focus({ preventScroll: true });
-            entry.current?.scrollIntoView({ block: "start" });
-          }} />
-          <IslandGuide language={language} />
-        </>}
-      </div> : <>
-        {!chooseRespondent && <div className="island-board-clocks"><ProjectClocks language={language} /></div>}
-        {chooseRespondent ? <section className="project-identify sl-casting" ref={casting} tabIndex={-1} aria-labelledby="project-choose-respondent">
+      {chooseRespondent ? <>
+        <section className="project-identify sl-casting" data-public={publicChooser || undefined}
+          ref={casting} tabIndex={-1} aria-labelledby="project-choose-respondent">
           <header className="sl-casting-heading">
             <div className="schedule-form-heading">
               <h2 id="project-choose-respondent"><Ink text={t.choose} /></h2>
             </div>
-            <p><Ink text={language === "ja" ? "自分の顔を選んで回答へ進みます。" : "Choose the portrait you want to use for your answers."} /></p>
+            <p><Ink text={t.chooseHint} /></p>
           </header>
           <form className="sl-casting-form" onSubmit={saveRespondent}>
-            {activePortraits ? <div className="project-portrait-grid sl-casting-grid">
-              {AVATAR_IDS.map(id => {
-                const taken = board.takenAvatars.includes(id);
+            {!avatarChoices.length ? <p className="project-muted" role="status"><Ink text={t.noGuestAvatars} /></p>
+              : activePortraits ? <div className="project-portrait-grid sl-casting-grid">
+              {avatarChoices.map(id => {
+                const portrait = activePortraits[id];
+                if (!portrait) return null;
+                const taken = board?.takenAvatars.includes(id) ?? false;
                 const selected = !taken && chosen === id;
-                const detail = taken ? t.taken : selected ? t.selected : customPortrait(id) ? t.unnamed : "";
+                const detail = taken ? t.taken : selected ? t.selected : !publicChooser && customPortrait(id) ? t.unnamed : "";
                 return <button className="project-portrait" type="button" key={id} disabled={taken || busy} data-taken={taken || undefined}
-                  aria-label={t.portrait + " " + Number(id) + (detail ? " · " + detail : "")} aria-pressed={selected} data-portrait-id={id}
+                  aria-label={t.character + " " + Number(id) + (detail ? " · " + detail : "")} aria-pressed={selected} data-portrait-id={id}
                   onClick={() => {
                     setChosen(id);
                     setDisplayName(old => old || ownName);
                     setFeedback(undefined);
                   }}>
-                  <img className="project-portrait-photo" src={activePortraits[id]} alt="" width={400} height={400} />
+                  <img className="project-portrait-photo" src={portrait} alt="" width={400} height={400} />
                   {selected && <span className="sl-casting-check" aria-hidden="true"><img src="/project/art/u04.webp" width={24} height={24} alt="" /></span>}
                   {detail && <span className="project-portrait-tag"><Ink text={detail} /></span>}
                 </button>;
@@ -963,7 +917,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
             <div className="sl-casting-confirm">
               <div className="sl-casting-pass" data-selected={Boolean(chosen && !selectedTaken) || undefined}>
                 {chosen && !selectedTaken && activePortraits && <img className="sl-selected-photo" src={activePortraits[chosen]} alt="" width={200} height={200} />}
-                <div aria-live="polite"><strong><Ink text={chosen && !selectedTaken ? (requiresName ? displayName.trim() || t.unnamed : ownName) : (language === "ja" ? "未選択" : "Select a portrait")} /></strong>
+                <div aria-live="polite"><strong><Ink text={chosen && !selectedTaken ? (publicChooser ? t.character + " " + Number(chosen) : requiresName ? displayName.trim() || t.unnamed : ownName) : (language === "ja" ? "未選択" : "Select a portrait")} /></strong>
                 </div>
               </div>
               {requiresName && !selectedTaken && <Field label={<Ink text={t.name} />}>
@@ -976,7 +930,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                   setEditingRespondent(false);
                   setInitials(true);
                 }}><Ink text={t.useInitial} /></button> :
-                  <button className="project-primary" type="submit" disabled={!chosen || busy || selectedTaken || (requiresName && !displayName.trim())}>
+                  avatarChoices.length > 0 && <button className="project-primary" type="submit" disabled={!chosen || busy || selectedTaken || (requiresName && !displayName.trim())}>
                     <Ink text={busy ? t.saving : t.pick} />
                   </button>}
                 {editingRespondent && <button className="project-secondary" type="button" disabled={busy} onClick={() => {
@@ -986,32 +940,43 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
               </div>
             </div>
           </form>
-        </section> : <>
+        </section>
+        <div className="island-board-clocks island-board-clocks-after-cast"><ProjectClocks language={language} /></div>
+        {publicChooser && <>
+          <IslandHero language={language} onStart={() => {
+            casting.current?.focus({ preventScroll: true });
+            casting.current?.scrollIntoView({ block: "start" });
+          }} />
+          <IslandGuide language={language} />
+          <a href="/?manage=1" className="project-manage-link">{t.manage}</a>
+        </>}
+      </> : board ? <>
+          <div className="island-board-clocks"><ProjectClocks language={language} /></div>
           <div className="island-tools">
             <div className="project-identity">
               <Avatar src={profile ? photo(sets, profile.avatar) : undefined} name={ownName} />
               <div className="island-identity-label"><span><Ink text={board.organizer ? t.organizer : t.portrait} /></span><strong><Ink text={ownName} /></strong></div>
-              <button type="button" className="island-switch" onClick={editRespondent} aria-label={t.change}>
+              {!board.guest && <button type="button" className="island-switch" onClick={editRespondent} aria-label={t.change}>
                 <Ink text={language === "ja" ? "変更" : "Change"} />
-              </button>
+              </button>}
             </div>
             {(mode === "propose" || audienceSlot) && <div className="toolbar-audience" role="group" aria-label={t.audience}>
               <strong><Ink text={t.audience} /></strong>
               <AudienceIcons board={board} sets={sets} language={language} limit={4}
                 meeting={mode === "propose" ? editing?.item : audienceSlot} draft={respondentAvatars} />
             </div>}
-            <nav className="project-mode" aria-label={t.mode}>
+            {!board.guest && <nav className="project-mode" aria-label={t.mode}>
               {(["reply", "propose"] as const).map(action => <button key={action} type="button" data-mode={action}
                 disabled={busy} aria-pressed={mode === action} onClick={() => switchMode(action)}>
                 <strong className="project-mode-label"><Ink text={action === "propose" ? t.propose : t.reply} /></strong>
               </button>)}
-            </nav>
+            </nav>}
           </div>
           {!dialog && status}
           {mode === "reply" && <section className="project-list" ref={content} tabIndex={-1} aria-labelledby="project-candidates">
             <div className="island-list-head"><h2 id="project-candidates"><Ink text={t.meetingList} /></h2></div>
             {orderedMeetings.length === 0 ? <div className="project-empty"><p><Ink text={t.noProposals} /></p>
-              <button className="project-primary" type="button" onClick={() => switchMode("propose")}><Ink text={t.propose} /></button>
+              {!board.guest && <button className="project-primary" type="button" onClick={() => switchMode("propose")}><Ink text={t.propose} /></button>}
             </div> : <div className="meeting-workbench">
               <nav id="project-meeting-picker" className="meeting-picker" aria-label={t.meetingList} tabIndex={-1}>
                 <div className="island-list-filter" role="group" aria-label={language === "ja" ? "打ち合わせの表示" : "Meetings to display"}>
@@ -1185,9 +1150,17 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
               </aside>
             </form>
           </section>}
-        </>}
-        {chooseRespondent && <div className="island-board-clocks island-board-clocks-after-cast"><ProjectClocks language={language} /></div>}
-      </>}
+      </> : <div className="island-landing-actions">
+        <section className="renewed-entry" aria-labelledby="sl-entry-title" aria-busy={loading || undefined}>
+          <div className="renewed-entry-content">
+            <h2 id="sl-entry-title"><Ink text={manageEntry ? t.manage : t.choose} /></h2>
+            {loading ? <p role="status"><Ink text={t.loading} /></p>
+              : manageEntry && feedback?.message === "inviteRequired"
+                ? <a className="project-primary renewed-signin" href={managementSignIn(signInPath, linkedMeeting)} target="_top"><Ink text={t.signIn} /></a>
+                : <>{status}<button type="button" className="project-secondary" onClick={openBoard}><Ink text={t.refresh} /></button></>}
+          </div>
+        </section>
+      </div>}
 
       <dialog className="project-confirm" ref={confirmation} aria-labelledby="project-confirm-title"
         onCancel={event => { if (busy) event.preventDefault(); }} onClose={() => setDialog(null)}>

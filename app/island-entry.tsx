@@ -35,8 +35,8 @@ export function IslandHero({ language, onStart }: { language: Language; onStart:
 const steps = [
   {
     key: "invite", icon: Link2, scene: "galle-compact.webp", sticker: "tuk-tuk.webp",
-    ja: ["参加リンクを開く", "主催者から届いたリンクで、打ち合わせに参加。"],
-    en: ["Open your invitation", "Use the link from your organizer to join a meeting."],
+    ja: ["サイトを開く", "共有されたサイトを開いて、日程調整に参加。"],
+    en: ["Open the site", "Open the shared site to take part in scheduling."],
   },
   {
     key: "portrait", icon: Users, scene: "ella-compact.webp",

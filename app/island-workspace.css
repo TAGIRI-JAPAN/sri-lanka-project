@@ -258,6 +258,99 @@
   border-radius: 10px;
 }
 
+.renewed-project .sl-casting[data-public] {
+  width: min(100%, 900px);
+  margin-inline: auto;
+}
+
+.renewed-project .sl-casting[data-public] .sl-casting-heading {
+  min-height: clamp(105px, 13vw, 146px);
+  padding: clamp(15px, 2.7vw, 28px);
+  padding-inline-end: max(15px, 17%);
+}
+
+.renewed-project .sl-casting[data-public] .sl-casting-heading h2 {
+  font-size: clamp(1.35rem, 3.4vw, 2.18rem);
+}
+
+.renewed-project .sl-casting[data-public] .sl-casting-heading p {
+  margin-top: 6px;
+  font-size: .94rem;
+}
+
+.renewed-project .sl-casting[data-public] .sl-casting-form {
+  gap: clamp(10px, 2.2vw, 20px);
+  padding: clamp(10px, 2.65vw, 24px);
+}
+
+.renewed-project .sl-casting[data-public] .sl-casting-grid {
+  gap: clamp(6px, 1.4vw, 12px);
+}
+
+.renewed-project .project-manage-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 44px;
+  margin: 10px auto 0;
+  padding: 4px 9px;
+  border-radius: 6px;
+  color: #405c4d;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  font-size: .875rem;
+  line-height: 1.4;
+}
+
+.renewed-project .project-manage-link:hover {
+  color: var(--desk-teal);
+  background: #f3e8ce;
+}
+
+.renewed-project .project-manage-link:focus-visible {
+  outline: 2px solid #a94228;
+  outline-offset: 2px;
+}
+
+@media (max-width: 535px) {
+  .renewed-project .sl-casting[data-public] .sl-casting-heading {
+    min-height: 96px;
+    background-size: auto, 100% auto;
+  }
+
+  .renewed-project .sl-casting[data-public] .sl-casting-heading h2 {
+    font-size: clamp(1.3rem, 5.5vw, 1.67rem);
+  }
+
+  .renewed-project .sl-casting[data-public] .sl-casting-heading p {
+    margin-top: 4px;
+    font-size: .875rem;
+    line-height: 1.4;
+  }
+
+  .renewed-project .sl-casting[data-public] .sl-casting-confirm {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .renewed-project .sl-casting[data-public] .sl-casting-pass {
+    min-height: 40px;
+    gap: 8px;
+    padding: 4px 6px;
+    font-size: .94rem;
+  }
+
+  .renewed-project .sl-casting[data-public] .sl-selected-photo,
+  .renewed-project .sl-casting[data-public] .sl-casting-pass:not([data-selected])::before {
+    width: 32px;
+    height: 32px;
+  }
+}
+
 .renewed-project .island-tools {
   min-height: 120px;
   gap: clamp(12px, 2vw, 24px);
