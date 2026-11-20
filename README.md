@@ -4,7 +4,7 @@
 
 日本とスリランカのチーム向けに、候補日時の提案と出欠回答をまとめるアプリです。予約ボードは `/`、架空のゲーム企画ギャラリーは `/games` にあります。
 
-[日程調整サイト](https://tagiri-world-schedule.mikutakane.chatgpt.site/) · [発売ゲーム](https://tagiri-world-schedule.mikutakane.chatgpt.site/games)
+[日程調整サイト](https://tagiri-world-schedule.mikutakane.chatgpt.site/) · [発売ゲーム](https://tagiri-world-schedule.mikutakane.chatgpt.site/games) · [関連グッズ40点](https://tagiri-world-schedule.mikutakane.chatgpt.site/games/merch)
 
 このリポジトリは公開用スナップショットです。日程や回答などの運用データを持たず、参加者の画像には風景とイラストのサンプルを使います。公開用の画像には架空のパッケージ案が含まれます。
 
