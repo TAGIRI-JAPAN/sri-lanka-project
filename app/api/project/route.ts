@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getProjectMember, isProjectOrganizer, newProjectGuestToken,
   openProjectProposal as openProposal, projectGuestCookie, projectGuestTokenPrefix, readProjectGuestToken } from "@/lib/project-access";
-import { AVATAR_IDS, customPortrait, expandCandidateWindows, PROJECT_COMPLETION_EMAIL, PROJECT_ORGANIZER_ID, PROJECT_ORGANIZER_NAME, projectChoices, type AvailabilityWindow, type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard, type ProjectChoice, type ProjectMember, type ProjectRespondent, type ProjectTargetRespondent, type Proposal } from "@/lib/project";
+import { AVATAR_IDS, customPortrait, expandCandidateWindows, PROJECT_COMPLETION_EMAIL, PROJECT_ORGANIZER_ID, PROJECT_ORGANIZER_NAME, projectCharacterName, projectChoices, type AvailabilityWindow, type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard, type ProjectChoice, type ProjectMember, type ProjectRespondent, type ProjectTargetRespondent, type Proposal } from "@/lib/project";
 import { DURATIONS, MAX_NAME_LENGTH, parseWall, uuid, validZone } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +57,19 @@ function guestAlias(avatar: ProjectAvatar | null, position: number): ProjectResp
 }
 
 function characterName(avatar: ProjectAvatar) {
+  return projectCharacterName(avatar) ?? genericCharacterName(avatar);
+}
+
+function genericCharacterName(avatar: ProjectAvatar) {
   return `キャラクター ${Number(avatar)}`;
+}
+
+function guestDisplayName(profile: ProfileRow) {
+  const name = profile.display_name?.trim();
+  const number = Number(profile.avatar);
+  return !name || name === genericCharacterName(profile.avatar) || name === `Character ${number}` || name === `ゲスト ${number}`
+    ? characterName(profile.avatar)
+    : name;
 }
 
 function isCandidateWindow(value: unknown): value is CandidateWindow {
@@ -165,7 +177,7 @@ async function joinProjectGuest(db: D1Database, request: Request, profile: Profi
       .bind(id, "guest-" + id, token, Date.now()),
     db.prepare(`INSERT INTO project_profiles (id, avatar, display_name, avatar_style)
       SELECT ?, ?, ?, ? WHERE changes() > 0`)
-      .bind(id, profile.avatar, profile.name ?? characterName(profile.avatar), profile.avatarStyle ?? "wide"),
+      .bind(id, profile.avatar, profile.name ?? genericCharacterName(profile.avatar), profile.avatarStyle ?? "wide"),
     db.prepare("SELECT id FROM project_members WHERE token = ?").bind(token),
   ]);
   const joined = result.results[0];
@@ -199,6 +211,23 @@ function saveResponse(db: D1Database, proposalId: string, memberId: string, resp
        availability = CASE WHEN excluded.availability IS NULL AND project_responses.choice = excluded.choice
          THEN project_responses.availability ELSE excluded.availability END`
   ).bind(memberId, response.choice, availability, proposalId, Number(verifyAudience), memberId, avatar, memberId, avatar, profile?.name ?? null, avatarStyle, avatarStyle);
+}
+
+async function cancelProjectVote(db: D1Database, proposalId: string, memberId: string, choice: ProjectChoice) {
+  const [deleted, , status] = await db.batch<{ open: number }>([
+    db.prepare(`DELETE FROM project_responses WHERE proposal_id = ? AND member_id = ? AND choice = ?
+      AND EXISTS (SELECT 1 FROM project_proposals WHERE id = ? AND ${openProposal})`)
+      .bind(proposalId, memberId, choice, proposalId),
+    // The prior completion no longer reflects the current ballot. A subsequent
+    // completed ballot can queue a fresh snapshot under the same meeting ID.
+    db.prepare(`DELETE FROM project_completion_notifications WHERE changes() > 0
+      AND meeting_id = COALESCE((SELECT meeting_id FROM project_proposals WHERE id = ?), ?)`)
+      .bind(proposalId, proposalId),
+    db.prepare(`SELECT (${openProposal}) AS open FROM project_proposals WHERE id = ?`).bind(proposalId),
+  ]);
+  if (!status.results[0]) return fail("missing", 404);
+  if (!status.results[0].open) return fail("closed", 409);
+  return json({ saved: true, canceled: deleted.meta.changes > 0 });
 }
 
 function queueCompletion(db: D1Database, proposalId: string, meetingId: string | null) {
@@ -331,7 +360,10 @@ export async function GET(request: Request) {
   const members = (memberList.results ?? []) as ProjectMember[];
   const guestIds = new Set(members.filter(person => person.token.startsWith(projectGuestTokenPrefix)).map(person => person.id));
   const profiles = new Map((profileList.results as ProfileRow[]).map(profile => [profile.id, profile]));
-  const respondents = [...members, organizerRespondent].map(({ id, name }) => ({ id, name: profiles.get(id)?.display_name ?? name }));
+  const respondents = [...members, organizerRespondent].map(({ id, name }) => {
+    const profile = profiles.get(id);
+    return { id, name: profile && guestIds.has(id) ? guestDisplayName(profile) : profile?.display_name ?? name };
+  });
   const membersById = new Map(respondents.map(person => [person.id, person]));
   const portraitOwners: ProjectBoard["portraitOwners"] = {};
   for (const person of respondents) {
@@ -396,7 +428,7 @@ export async function GET(request: Request) {
     const ownResponse = votes?.get(profileId);
     const author = profiles.get(row.proposer_id ?? PROJECT_ORGANIZER_ID);
     const showAuthor = !guest || guestHosted;
-    const proposer = guestHosted && author ? author.display_name ?? characterName(author.avatar)
+    const proposer = guestHosted && author ? guestDisplayName(author)
       : row.proposer_id ? membersById.get(row.proposer_id)?.name ?? null : author?.display_name ?? null;
     const showMeetingUrl = manages || (row.confirmed && viewerEligible && (guestHosted ? answered?.has(profileId) : !guest));
     const alias = (person: ProjectRespondent, index: number) => guest && person.id !== profileId
@@ -420,6 +452,12 @@ export async function GET(request: Request) {
         const responder = profiles.get(person.id);
         const targetAvatar = targetedAvatars.get(person.id);
         if (guest && person.id !== profileId) {
+          if (guestHosted && guestIds.has(person.id)) {
+            const avatar = responder?.avatar ?? null;
+            const participant = guestAlias(null, index + 1);
+            return [{ ...participant, name: avatar ? characterName(avatar) : participant.name, choice: response.choice,
+              avatar, avatarStyle: null, availability: null }];
+          }
           const avatar = targetAvatar ?? responder?.avatar ?? null;
           return [{ ...alias(person, index), choice: response.choice, avatar, avatarStyle: null, availability: null }];
         }
@@ -440,7 +478,7 @@ export async function GET(request: Request) {
     guest: guest || undefined,
     viewerId: profileId,
     memberName: membersById.get(profileId)?.name ?? null,
-    profile: profile ? { avatar: profile.avatar, avatarStyle: profile.avatar_style, displayName: profile.display_name } : null,
+    profile: profile ? { avatar: profile.avatar, avatarStyle: profile.avatar_style, displayName: guest ? guestDisplayName(profile) : profile.display_name } : null,
     takenAvatars: guest ? [] : [...profiles.values()].filter(person => person.id !== profileId && !guestIds.has(person.id)).map(person => person.avatar),
     portraitOwners: guest ? {} : portraitOwners,
     meetingAudience,
@@ -484,7 +522,7 @@ export async function POST(request: Request) {
     if (!profile) return fail("invalid", 400);
     return joinProjectGuest(db, request, profile);
   }
-  if (body.action === "vote") {
+  if (body.action === "vote" || body.action === "cancelVote") {
     if (!actor) return fail("inviteRequired", 403);
     if (typeof body.id !== "string" || !uuid.test(body.id) || !projectChoices.includes(body.choice)) return fail("invalid", 400);
     const item = await db.prepare(
@@ -503,6 +541,7 @@ export async function POST(request: Request) {
         return fail("missing", 404);
       }
     } else if (!(item.uses_portraits ? item.selected : allowedMember(item.respondents, actor.id))) return fail("ineligible", 403);
+    if (body.action === "cancelVote") return cancelProjectVote(db, body.id, actor.id, body.choice);
     const availability = body.availability === undefined ? null : readAvailability(body.availability, body.choice);
     if (body.availability !== undefined && availability === null) return fail("invalidAvailability", 400);
     const response: SavedResponse = { choice: body.choice, availability };
@@ -552,7 +591,7 @@ export async function POST(request: Request) {
     if (member?.guest) {
       const result = await db.prepare(`UPDATE project_profiles
         SET avatar = ?, display_name = ?, avatar_style = COALESCE(?, CASE WHEN avatar = ? THEN avatar_style ELSE 'wide' END)
-        WHERE id = ?`).bind(selectedProfile.avatar, selectedProfile.name ?? characterName(selectedProfile.avatar),
+        WHERE id = ?`).bind(selectedProfile.avatar, selectedProfile.name ?? genericCharacterName(selectedProfile.avatar),
         selectedProfile.avatarStyle, selectedProfile.avatar, actor.id).run();
       return result.meta.changes ? json({ saved: true }) : fail("inviteRequired", 403);
     }
