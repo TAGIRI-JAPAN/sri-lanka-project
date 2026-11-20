@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "@/app/chatgpt-auth";
-import { AVATAR_IDS, type ProjectAvatar, type ProjectRespondent } from "./project";
+import type { ProjectRespondent } from "./project";
 import { uuid } from "./schedule";
 
 const guestCookie = "sri_lanka_guest";
@@ -8,24 +8,6 @@ export const projectGuestTokenPrefix = "guest-";
 export const openProjectProposal = `confirmed = 0 AND (meeting_id IS NULL OR NOT EXISTS (
   SELECT 1 FROM project_proposals chosen WHERE chosen.meeting_id = project_proposals.meeting_id AND chosen.confirmed = 1
 ))`;
-
-export const availableProjectGuestSeats = `
-  SELECT avatar.value AS avatar FROM json_each(?) AS avatar
-  WHERE NOT EXISTS (SELECT 1 FROM project_profiles profile WHERE profile.avatar = avatar.value)
-    AND EXISTS (
-      SELECT 1 FROM project_proposals
-      WHERE meeting_id IS NOT NULL AND ${openProjectProposal}
-        AND (
-          (json_array_length(respondents) = 0 AND NOT EXISTS (
-            SELECT 1 FROM project_meeting_respondents target WHERE target.meeting_id = project_proposals.meeting_id
-          ))
-          OR EXISTS (
-            SELECT 1 FROM project_meeting_respondents target
-            WHERE target.meeting_id = project_proposals.meeting_id AND target.avatar = avatar.value AND target.member_id IS NULL
-          )
-        )
-    )
-  ORDER BY avatar.key`;
 
 export type ProjectAccessMember = ProjectRespondent & { guest?: boolean };
 
@@ -49,11 +31,6 @@ export function newProjectGuestToken() {
 export function projectGuestCookie(request: Request, token: string) {
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${guestCookie}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=15552000${secure}`;
-}
-
-export async function getProjectAvailableAvatars(db: D1Database) {
-  const avatars = await db.prepare(availableProjectGuestSeats).bind(JSON.stringify(AVATAR_IDS)).all<{ avatar: ProjectAvatar }>();
-  return avatars.results.map(({ avatar }) => avatar);
 }
 
 export async function getProjectMember(db: D1Database, request: Request): Promise<ProjectAccessMember | null> {
