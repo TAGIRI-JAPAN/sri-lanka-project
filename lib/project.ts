@@ -96,20 +96,34 @@ export type Proposal = {
   waiting: ProjectRespondent[];
 };
 
-export function rankProjectCandidates(slots: readonly Proposal[]) {
-  return slots.filter(slot => slot.responses.length > 0).map(slot => {
+export function projectRetryRespondents(slots: readonly Proposal[]) {
+  const firstResponses = slots[0]?.responses ?? [];
+  const retry = new Map(firstResponses.filter(response => response.choice === "no").map(response => [response.id, response]));
+  for (const slot of slots.slice(1)) {
+    if (!retry.size) break;
+    const unavailable = new Set(slot.responses.filter(response => response.choice === "no").map(response => response.id));
+    for (const id of retry.keys()) if (!unavailable.has(id)) retry.delete(id);
+  }
+  return [...retry.values()];
+}
+
+export function rankProjectCandidates(slots: readonly Proposal[], retryRespondents = projectRetryRespondents(slots)) {
+  const retryIds = new Set(retryRespondents.map(person => person.id));
+  return slots.flatMap(slot => {
+    const responses = slot.responses.filter(response => !retryIds.has(response.id));
+    if (!responses.length) return [];
     const totals = { preferred: 0, yes: 0, maybe: 0, no: 0 };
     const unavailable: Proposal["responses"] = [];
-    for (const response of slot.responses) {
+    for (const response of responses) {
       totals[response.choice]++;
       if (response.choice === "no") unavailable.push(response);
     }
-    return {
+    return [{
       slot,
       ...totals,
       pending: Math.max(0, slot.totalRespondents - slot.responses.length),
       unavailable,
-    };
+    }];
   }).sort((left, right) =>
     right.preferred - left.preferred || right.yes - left.yes || left.no - right.no ||
     right.maybe - left.maybe || left.slot.start - right.slot.start
