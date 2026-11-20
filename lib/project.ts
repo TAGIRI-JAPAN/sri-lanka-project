@@ -13,6 +13,20 @@ export type ProjectAvatar = typeof AVATAR_IDS[number];
 export type ProjectAvatarStyle = "wide" | "kirie";
 export type ProjectPortraits = Record<ProjectAvatar, string>;
 
+const characterNames: Partial<Record<ProjectAvatar, string>> = {
+  "01": "SHINYA",
+  "02": "PASINDU",
+  "03": "GON兄",
+  "04": "RINA",
+  "05": "MANAMI",
+  "06": "MIKU",
+  "09": "HALUKI",
+};
+
+export function projectCharacterName(avatar: ProjectAvatar) {
+  return characterNames[avatar];
+}
+
 export function customPortrait(id: ProjectAvatar) {
   return id === "07" || id === "08";
 }
