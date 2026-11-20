@@ -1,10 +1,13 @@
-import { parseWall, type Choice } from "./schedule";
+import { choices, marks, parseWall } from "./schedule";
 
 export const PROJECT_TITLE = "Sri Lankaプロジェクト";
 export const PROJECT_ORGANIZER_ID = "organizer";
 export const PROJECT_ORGANIZER_NAME = "プロジェクト管理者";
-export const PROJECT_COMPLETION_EMAIL = "scheduling@example.com";
+export const PROJECT_COMPLETION_EMAIL = "info@tagiri-japan.com";
 export const MAX_PROJECT_SLOTS = 200;
+export const projectChoices = ["preferred", ...choices] as const;
+export const projectMarks = { preferred: "◎", ...marks } as const;
+export type ProjectChoice = typeof projectChoices[number];
 export const AVATAR_IDS = ["01", "02", "03", "04", "05", "06", "09", "07", "08"] as const;
 export type ProjectAvatar = typeof AVATAR_IDS[number];
 export type ProjectAvatarStyle = "wide" | "kirie";
@@ -67,16 +70,36 @@ export type Proposal = {
   canManage: boolean;
   eligible: boolean;
   totalRespondents: number;
-  ownChoice: Choice | null;
+  ownChoice: ProjectChoice | null;
   ownAvailability: AvailabilityWindow[] | null;
   responses: (ProjectRespondent & {
-    choice: Choice;
+    choice: ProjectChoice;
     avatar: ProjectAvatar | null;
     avatarStyle: ProjectAvatarStyle | null;
     availability: AvailabilityWindow[] | null;
   })[];
   waiting: ProjectRespondent[];
 };
+
+export function rankProjectCandidates(slots: readonly Proposal[]) {
+  return slots.filter(slot => slot.responses.length > 0).map(slot => {
+    const totals = { preferred: 0, yes: 0, maybe: 0, no: 0 };
+    const unavailable: Proposal["responses"] = [];
+    for (const response of slot.responses) {
+      totals[response.choice]++;
+      if (response.choice === "no") unavailable.push(response);
+    }
+    return {
+      slot,
+      ...totals,
+      pending: Math.max(0, slot.totalRespondents - slot.responses.length),
+      unavailable,
+    };
+  }).sort((left, right) =>
+    right.preferred - left.preferred || right.yes - left.yes || left.no - right.no ||
+    right.maybe - left.maybe || left.slot.start - right.slot.start
+  );
+}
 
 export type ProjectBoard = {
   organizer: boolean;
