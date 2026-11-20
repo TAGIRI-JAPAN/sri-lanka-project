@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CalendarDays, Camera, Coins, Compass, Monitor } from "lucide-react";
+import { CalendarDays, Camera, Coins, Compass, Gift, Monitor } from "lucide-react";
 import { CatalogJumpLink, ScheduleReturnLink } from "./catalog-links";
 import "./games.css";
 
@@ -147,6 +147,7 @@ export default function GamesPage() {
         </ScheduleReturnLink>
         <nav aria-label="サイト内メニュー">
           <CatalogJumpLink><img src="/project/games/release-wordmark.webp" alt="発売ゲーム" width={1024} height={252} /></CatalogJumpLink>
+          <a href="/games/merch">関連グッズ</a>
           <ScheduleReturnLink>日程調整へ戻る</ScheduleReturnLink>
         </nav>
       </div>
@@ -161,7 +162,12 @@ export default function GamesPage() {
             </h1>
             <p className="game-catalog-tagline">ひとりの主人公が歩く、<br />スリランカの5つの物語。</p>
             <p className="game-catalog-intro">日本語教室を開くところから、職業訓練、海を越える進路相談へ。スリランカ各地を舞台にした架空のゲームシリーズ。</p>
-            <CatalogJumpLink className="game-catalog-hero-action"><Compass size={19} aria-hidden="true" />全5作品を見る</CatalogJumpLink>
+            <div className="game-catalog-hero-actions">
+              <CatalogJumpLink className="game-catalog-hero-action"><Compass size={19} aria-hidden="true" />全5作品を見る</CatalogJumpLink>
+              <a className="game-catalog-hero-action game-catalog-hero-action-secondary" href="/games/merch">
+                <Gift size={19} aria-hidden="true" />関連グッズ40点
+              </a>
+            </div>
           </div>
           <div className="game-catalog-hero-covers" aria-hidden="true">
             {[games[0], games[2], games[4]].map(game => <img key={game.id} src={coverOf(game)} alt="" width={game.cover.width} height={game.cover.height} />)}
@@ -189,6 +195,7 @@ export default function GamesPage() {
     <footer className="game-catalog-footer">
       <div className="game-catalog-footer-inner">
         <span>Sri Lankaプロジェクト</span>
+        <a href="/games/merch">関連グッズ</a>
         <ScheduleReturnLink>日程調整へ戻る</ScheduleReturnLink>
       </div>
     </footer>
