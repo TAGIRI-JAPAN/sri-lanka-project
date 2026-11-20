@@ -21,7 +21,6 @@ export type MerchProduct = {
   subtitle: string;
 };
 
-export const merchNotice = "価格はすべて企画用の想定税込価格（日本円）です。素材・寸法・対応機種は企画段階の想定です。";
 
 export const merchProducts: readonly MerchProduct[] = [
   {
@@ -157,7 +156,7 @@ export const merchProducts: readonly MerchProduct[] = [
     category: "keychains",
     name: "旧校舎の鍵 メタルチャーム",
     price: 1540,
-    description: "旧校舎探索で見つかる架空の鍵を、いぶし真鍮色のチャームに。鍵の頭には教室のアーチ窓を刻印。",
+    description: "旧校舎探索で見つかる鍵を、いぶし真鍮色のチャームに。鍵の頭には教室のアーチ窓を刻印。",
     subtitle: "初代／PS2",
   },
   {
@@ -181,7 +180,7 @@ export const merchProducts: readonly MerchProduct[] = [
     category: "collectibles",
     name: "オリジナルサウンドトラックCD",
     price: 3300,
-    description: "初代の教室から『5』の夜明けまでをたどる、架空のシリーズ楽曲集。紙ジャケットとCD盤のセット。",
+    description: "初代の教室から『5』の夜明けまでをたどるシリーズ楽曲集。紙ジャケットとCD盤のセット。",
     subtitle: "シリーズ共通",
   },
   {

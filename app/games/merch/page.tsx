@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ImageIcon, LayoutGrid, PackageOpen } from "lucide-react";
-import { merchCategories, merchNotice, merchProducts, type MerchProduct } from "./catalog";
+import { merchCategories, merchProducts, type MerchProduct } from "./catalog";
 import "../games.css";
 import "./merch.css";
 
 export const metadata: Metadata = {
   title: "関連グッズ | Sri Lankaプロジェクト",
-  description: "初代から『5』までのモチーフを集めた、Sri Lankaプロジェクトの関連グッズ企画カタログ全40点。",
+  description: "Sri Lankaプロジェクトの関連グッズ40点を紹介。",
 };
 
 const colors = {
@@ -78,8 +78,9 @@ export default function MerchPage() {
           <div className="merch-hero-content">
             <h1 id="merch-title">関連グッズ</h1>
             <p className="merch-hero-lead">ゲームで出会った風景を、<br />手元に。</p>
-            <p className="merch-hero-description">初代から『5』までのモチーフを集めた、全{merchProducts.length}点のグッズ企画。</p>
-            <a className="game-catalog-hero-action" href="#merch-catalog"><LayoutGrid size={18} aria-hidden="true" />グッズ一覧を見る</a>
+            <div className="game-catalog-hero-actions">
+              <a className="game-catalog-hero-action" href="#merch-catalog"><LayoutGrid size={18} aria-hidden="true" />グッズ一覧を見る</a>
+            </div>
           </div>
           <div className="merch-showcase" role="group" aria-label="ピックアップ商品">
             {showcase.map(product => <a key={product.id} data-item={product.id} href={"#" + productAnchor(product.id)} aria-label={product.name + "を見る"}>
@@ -94,7 +95,6 @@ export default function MerchPage() {
           <PackageOpen size={34} strokeWidth={1.65} aria-hidden="true" />
           <div>
             <h2 id="merch-catalog-title">グッズカタログ</h2>
-            <p>架空の商品企画です。{merchNotice}</p>
           </div>
         </header>
         <div className="merch-catalog-layout">
