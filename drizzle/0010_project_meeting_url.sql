@@ -1,0 +1,1 @@
+ALTER TABLE `project_proposals` ADD `meeting_url` text;

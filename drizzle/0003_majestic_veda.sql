@@ -1,0 +1,1 @@
+ALTER TABLE `project_proposals` ADD `proposer_id` text REFERENCES project_members(id);

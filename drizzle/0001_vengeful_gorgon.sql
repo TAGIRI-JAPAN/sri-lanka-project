@@ -1,0 +1,1 @@
+ALTER TABLE `polls` ADD `invitees` text DEFAULT '[]' NOT NULL;

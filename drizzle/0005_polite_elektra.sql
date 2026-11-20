@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `project_profiles_avatar_unique` ON `project_profiles` (`avatar`);

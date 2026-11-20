@@ -1,0 +1,1 @@
+ALTER TABLE `project_profiles` ADD `avatar_style` text DEFAULT 'wide' NOT NULL;
