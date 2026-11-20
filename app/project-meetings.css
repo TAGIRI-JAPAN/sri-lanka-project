@@ -39,9 +39,28 @@
 }
 
 .renewed-project .meeting-response-edit-label {
-  margin: 0 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+  margin: 0 0 8px;
   color: #28544a;
   font-size: .875rem;
+}
+
+.renewed-project .meeting-clear-response {
+  min-height: 44px;
+  padding: 4px 9px;
+  border-color: #a76c55;
+  background: #fff5ec;
+  color: #803324;
+}
+
+.renewed-project .meeting-audience-edit {
+  min-height: 44px;
+  margin-inline-start: auto;
+  padding: 4px 9px;
 }
 
 .renewed-project .meeting-index {
@@ -57,6 +76,21 @@
 .renewed-project .meeting-index li,
 .renewed-project .meeting-detail {
   min-width: 0;
+}
+
+.renewed-project .meeting-index-completed {
+  padding: 8px 5px 0;
+  border-top: 1px solid #d7dcc9;
+  color: #28544a;
+}
+
+.renewed-project .meeting-index-completed:first-child {
+  border-top: 0;
+}
+
+.renewed-project .meeting-index-completed h3 {
+  margin: 0;
+  font-size: .85rem;
 }
 
 .renewed-project .meeting-detail {
@@ -118,7 +152,7 @@
   color: #704310;
 }
 
-.renewed-project .meeting-index-badge:is([data-state="confirmed"], [data-state="answered"]) {
+.renewed-project .meeting-index-badge:is([data-state="confirmed"], [data-state="complete"], [data-state="answered"]) {
   border-color: #93b39d;
   background: #e1f0dc;
   color: #1c523e;

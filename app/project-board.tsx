@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   AVATAR_IDS, customPortrait, expandCandidateWindows, MAX_PROJECT_SLOTS, projectCharacterName, projectChoices, projectMarks, PROJECT_ORGANIZER_NAME,
   type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard as Board, type ProjectChoice, type ProjectPortraits, type Proposal,
 } from "@/lib/project";
+import { getProjectMeetingStatus } from "@/lib/project-list";
 import { COLOMBO, dateLabel, DURATIONS, MAX_NAME_LENGTH, timeLabel, TOKYO, uuid, wallTime, zoneName, type Language } from "@/lib/schedule";
 import { ArrowDown, ArrowUp, ChevronRight } from "lucide-react";
 import { Ink } from "./editorial-ink";
@@ -31,7 +32,16 @@ type MeetingFilter = "all" | "mine" | "created" | "confirmed";
 type DraftWindow = CandidateWindow & { key: number };
 type PortraitSets = Partial<Record<ProjectAvatarStyle, ProjectPortraits>>;
 type Feedback = { message: Message; error?: boolean };
-type MeetingDialog = { action: "confirm" | "delete"; item: Proposal };
+type MeetingDialog = {
+  heading: Message;
+  prompt: Message;
+  detail?: Message;
+  submit: Message;
+  run: () => boolean | Promise<boolean>;
+  item?: Proposal;
+  showTime?: boolean;
+  destructive?: boolean;
+};
 type ProposalInput = { title: string; meetingUrl: string; windows: DraftWindow[]; zone: string; duration: number; respondentAvatars: ProjectAvatar[] };
 type GuestEntry = { availableAvatars: ProjectAvatar[] };
 
@@ -51,15 +61,25 @@ const copy = {
     open: "回答受付中", closed: "受付終了", confirmed: "日程が決まりました", finalizedSlot: "確定した日時", complete: "全員回答済み",
     preferred: "最優先", yes: "参加可", maybe: "要相談", no: "参加不可", vote: "出欠を入力", editVote: "回答を変更",
     pending: "未回答", voted: "回答を受け付けました", votedState: "回答済み", review: "回答を確認", waiting: "未回答",
-    cancelVoteHint: "選択中のボタンをもう一度押すと、未回答に戻ります。", voteCanceled: "回答を取り消しました。", closedVote: "この打ち合わせの回答受付は終了しました。",
-    ineligible: "この候補の回答対象外です。", seatTaken: "この打ち合わせの回答枠が埋まりました。", confirm: "日程を確定", reopen: "回答受付を再開",
-    confirmPrompt: "この枠を日程に確定し、この打ち合わせの回答受付を終了します。", confirmedSaved: "日程を確定しました。", reopened: "回答受付を再開しました。",
-    editMeeting: "編集", deleteMeeting: "削除", editHeading: "日程提案を編集",
-    deleteHeading: "打ち合わせを削除", deletePrompt: "この打ち合わせの候補日時と回答がすべて削除されます。",
+    cancelVoteHint: "選択中のボタンをもう一度押すと、取り消しの確認が出ます。", removeVote: "回答を取り消す",
+    removeVotePrompt: "本当にこの回答を取り消しますか？ この候補日時は未回答に戻ります。",
+    voteCanceled: "回答を取り消しました。", closedVote: "この打ち合わせの回答受付は終了しました。",
+    ineligible: "この候補の回答対象外です。", seatTaken: "この打ち合わせの回答枠が埋まりました。", confirm: "日程を確定", reopen: "予約を取り消す",
+    confirmPrompt: "この枠を日程に確定し、この打ち合わせの回答受付を終了します。", confirmedSaved: "日程を確定しました。",
+    reopenPrompt: "本当にこの予約を取り消しますか？ 候補日時と回答は残り、回答受付を再開します。", reopened: "予約を取り消し、回答受付を再開しました。",
+    editMeeting: "編集", deleteMeeting: "打ち合わせを削除", editHeading: "日程提案を編集",
+    deletePrompt: "本当にこの打ち合わせを削除しますか？ 候補日時と回答がすべて削除され、元に戻せません。",
+    deleteConfirmedPrompt: "本当にこの打ち合わせを削除しますか？ 確定済みの予約、候補日時、回答がすべて削除され、元に戻せません。",
     savedEdit: "日程提案を更新しました。", deletedMeeting: "打ち合わせを削除しました。", saveEdit: "変更を保存",
-    resetDraft: "入力をリセット", resetCandidateTimes: "候補日時を入れ直す", restoreEdit: "編集前に戻す", cancelEdit: "キャンセル",
+    resetDraft: "入力を消す", resetCandidateTimes: "候補日時を入れ直す", restoreEdit: "編集前に戻す", cancelEdit: "キャンセル",
+    resetDraftPrompt: "本当に入力内容を消しますか？", resetTimesPrompt: "本当に入力中の候補日時を消しますか？",
+    restoreEditPrompt: "本当に変更を破棄して、保存済みの内容に戻しますか？",
+    discardEdit: "変更を破棄", discardEditPrompt: "本当に保存していない変更を破棄しますか？",
+    removeWindowPrompt: "本当にこの候補日時の入力を削除しますか？",
+    saveRemovedSlotsPrompt: "本当に変更を保存しますか？ 削除・変更した候補日時と、その候補への回答が消えます。",
+    saveRemovedBookingPrompt: "本当に変更を保存しますか？ 予約の確定を取り消して受付を再開し、削除・変更した候補への回答を消します。",
     editHint: "変更した候補枠の回答は消去されます。", editReopens: "確定した日時を変更すると、回答受付を再開します。",
-    meetingList: "打ち合わせ一覧", allMeetings: "すべて", myMeetings: "自分宛", createdMeetings: "作成した", confirmedMeetings: "確定済み",
+    meetingList: "打ち合わせ一覧", completedMeetings: "完了", allMeetings: "すべて", myMeetings: "自分宛", createdMeetings: "作成した", confirmedMeetings: "確定済み",
     noMyMeetings: "あなた宛の打ち合わせはまだありません。", noCreatedMeetings: "作成した打ち合わせはまだありません。", noConfirmedMeetings: "確定済みの打ち合わせはまだありません。",
     unansweredOnly: "未回答だけ見る", nextUnanswered: "次の未回答へ", allCandidates: "全候補を見る",
     joinUrl: "オンライン会議リンク（任意）", joinUrlHint: "確定後、回答対象者に表示されます。",
@@ -70,12 +90,16 @@ const copy = {
     windowHelp: "終了時刻を入れると、その時間帯を打ち合わせ時間ごとの枠に分けます。開始時刻だけなら、その時刻から1枠作ります。",
     converted: "回答枠のプレビュー", slotUnit: "枠", progress: "回答状況", personalProgress: "あなたの回答", teamProgress: "全枠に回答した人",
     respondents: "回答してほしい人", allMembers: "全員", audienceHint: "回答者のアイコンをタップ。空いている枠にはゲストが回答できます。",
+    changeAudience: "回答対象を変更", changeAudiencePrompt: "この内容で回答してほしい人を変更しますか？",
+    audienceChangeDetail: "対象外になった人の回答は集計から外れます。",
+    existingAudience: "保存済みの回答対象", legacyAudienceHint: "選択を変更すると、保存済みの回答対象が置き換わります。",
     audience: "回答対象", unregistered: "本人未登録", self: "自分", personUnit: "人",
     post: "日程を提案", posted: "候補日時をまとめて追加しました。",
     backToEntry: "入力に戻る",
     invalid: "入力内容を確認してください。", invalidTime: "候補の日付・時刻を確認してください。",
     shortWindow: "打ち合わせ時間が収まるよう、候補の時間帯を広げてください。", tooManySlots: `一度に追加できるのは${MAX_PROJECT_SLOTS}枠までです。`,
     forbidden: "この操作は提案者か主催者が行えます。", missing: "候補日時が見つかりません。",
+    staleMeeting: "打ち合わせが更新されました。一覧に戻って、最新の内容を開き直してください。",
   },
   en: {
     inviteRequired: "Please reopen this page.", manage: "Manage schedules", signIn: "Sign in", loading: "Loading…", refresh: "Reload",
@@ -92,15 +116,25 @@ const copy = {
     open: "Accepting responses", closed: "Responses closed", confirmed: "Time confirmed", finalizedSlot: "Confirmed time", complete: "Everyone has responded",
     preferred: "Preferred", yes: "Available", maybe: "Maybe", no: "Unavailable", vote: "Add availability", editVote: "Edit response",
     pending: "No response yet", voted: "Your response was saved.", votedState: "Responded", review: "Check responses", waiting: "Awaiting response",
-    cancelVoteHint: "Select your current answer again to clear it.", voteCanceled: "Your answer was cleared.", closedVote: "This meeting is no longer accepting responses.",
-    ineligible: "You are not on the response list for this time.", seatTaken: "All response places for this meeting are filled.", confirm: "Confirm this time", reopen: "Reopen responses",
-    confirmPrompt: "Confirm this slot and close responses for this meeting.", confirmedSaved: "The time was confirmed.", reopened: "Responses have reopened.",
-    editMeeting: "Edit", deleteMeeting: "Delete", editHeading: "Edit proposed times",
-    deleteHeading: "Delete meeting", deletePrompt: "This permanently deletes all proposed times and responses for this meeting.",
+    cancelVoteHint: "Select your current answer again to review clearing it.", removeVote: "Clear response",
+    removeVotePrompt: "Clear your response? This time will be marked as unanswered.",
+    voteCanceled: "Your answer was cleared.", closedVote: "This meeting is no longer accepting responses.",
+    ineligible: "You are not on the response list for this time.", seatTaken: "All response places for this meeting are filled.", confirm: "Confirm this time", reopen: "Cancel booking",
+    confirmPrompt: "Confirm this slot and close responses for this meeting.", confirmedSaved: "The time was confirmed.",
+    reopenPrompt: "Cancel this booking? The proposed times and responses will be kept, and voting will reopen.", reopened: "The booking was canceled and voting has reopened.",
+    editMeeting: "Edit", deleteMeeting: "Delete meeting", editHeading: "Edit proposed times",
+    deletePrompt: "Permanently delete this meeting and all its proposed times and responses?",
+    deleteConfirmedPrompt: "Permanently delete this meeting, including its booking, proposed times, and responses?",
     savedEdit: "The proposal was updated.", deletedMeeting: "The meeting was deleted.", saveEdit: "Save changes",
-    resetDraft: "Reset form", resetCandidateTimes: "Start over with new times", restoreEdit: "Restore saved entries", cancelEdit: "Cancel",
+    resetDraft: "Clear inputs", resetCandidateTimes: "Start over with new times", restoreEdit: "Restore saved entries", cancelEdit: "Cancel",
+    resetDraftPrompt: "Clear everything you entered?", resetTimesPrompt: "Clear the proposed times you are editing?",
+    restoreEditPrompt: "Discard your changes and restore the saved entries?",
+    discardEdit: "Discard changes", discardEditPrompt: "Discard your unsaved changes?",
+    removeWindowPrompt: "Remove this proposed time from the form?",
+    saveRemovedSlotsPrompt: "Save these changes? Removed or changed times and their responses will be deleted.",
+    saveRemovedBookingPrompt: "Save these changes? This will cancel the booking, reopen voting, and delete responses to removed or changed times.",
     editHint: "Responses for changed time slots will be removed.", editReopens: "Changing the confirmed time will reopen responses.",
-    meetingList: "Meetings", allMeetings: "All", myMeetings: "For me", createdMeetings: "Created", confirmedMeetings: "Confirmed",
+    meetingList: "Meetings", completedMeetings: "Completed", allMeetings: "All", myMeetings: "For me", createdMeetings: "Created", confirmedMeetings: "Confirmed",
     noMyMeetings: "You have no meetings to respond to yet.", noCreatedMeetings: "You haven't created any meetings yet.", noConfirmedMeetings: "No meetings have been confirmed yet.",
     unansweredOnly: "Show unanswered only", nextUnanswered: "Go to next unanswered", allCandidates: "Show all times",
     joinUrl: "Online meeting link (optional)", joinUrlHint: "Shared with the requested respondents after confirmation.",
@@ -111,12 +145,16 @@ const copy = {
     windowHelp: "Add an end time to divide the window into meeting-length slots. A start time by itself creates a single slot.",
     converted: "Slot preview", slotUnit: "slots", progress: "Response status", personalProgress: "Your answers", teamProgress: "Respondents who answered every slot",
     respondents: "Who should respond?", allMembers: "Everyone", audienceHint: "Select respondents by portrait. Guests can fill unassigned places.",
+    changeAudience: "Edit respondents", changeAudiencePrompt: "Save these changes to who should respond?",
+    audienceChangeDetail: "Responses from people outside the updated audience will no longer count in the results.",
+    existingAudience: "Current respondents", legacyAudienceHint: "Changing the selection replaces the current respondent list.",
     audience: "Requested respondents", unregistered: "Not yet linked", self: "You", personUnit: " selected",
     post: "Post proposed times", posted: "The proposed times were added.",
     backToEntry: "Return to the form",
     invalid: "Check your entries and try again.", invalidTime: "Check the dates and times.",
     shortWindow: "Extend the window to fit the meeting length.", tooManySlots: `You can propose up to ${MAX_PROJECT_SLOTS} slots at once.`,
     forbidden: "Only the proposer or organizer can do this.", missing: "The proposed time could not be found.",
+    staleMeeting: "This meeting changed. Return to the list and reopen the latest version.",
   },
 } as const;
 
@@ -251,11 +289,16 @@ function ProposalSlot({ item, board, sets, language, primary, grouped = true, pe
     {item.confirmed && <p className="meeting-final"><img src="/project/art/u04.webp" alt="" width={20} height={20} /><Ink text={t.finalizedSlot} /></p>}
     <ProjectTimes start={item.start} duration={item.duration} language={language} primary={primary} grouped={grouped} />
     {showResponse && <div className="meeting-responses">
-      {canVote && ownChoice && <p id={`edit-response-${item.id}`} className="meeting-response-edit-label"><Ink text={t.cancelVoteHint} /></p>}
+      {canVote && item.ownChoice && <div className="meeting-response-edit-label">
+        <span id={`edit-response-${item.id}`}><Ink text={t.cancelVoteHint} /></span>
+        <button className="project-secondary meeting-clear-response" type="button" disabled={saving || busy} aria-haspopup="dialog"
+          onClick={() => { if (item.ownChoice) onVote(item.ownChoice); }}><Ink text={t.removeVote} /></button>
+      </div>}
       {canVote && <div className="meeting-votes" role="group" aria-label={ownChoice ? t.editVote : t.vote}
-        aria-describedby={ownChoice ? `edit-response-${item.id}` : undefined}>
+        aria-describedby={item.ownChoice ? `edit-response-${item.id}` : undefined}>
         {projectChoices.map(choice => <button type="button" className="meeting-vote" key={choice} data-choice={choice}
           aria-pressed={ownChoice === choice} aria-label={projectMarks[choice] + " " + t[choice]}
+          aria-haspopup={item.ownChoice === choice ? "dialog" : undefined}
           disabled={saving || busy} onClick={() => onVote(choice)}>
           <span className="meeting-vote-mark" aria-hidden="true"><Ink text={projectMarks[choice]} /></span>
           <span className="meeting-vote-label"><Ink text={t[choice]} /></span>
@@ -303,7 +346,7 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
   slots: Proposal[]; board: Board; sets: PortraitSets; language: Language; pending: Partial<Record<string, ProjectChoice | null>>;
   feedback: Record<string, Feedback>; busy: boolean; revealed: string | null;
   onVote: (slot: Proposal, choice: ProjectChoice) => void; onConfirm: (slot: Proposal) => void;
-  onEdit: (slots: Proposal[]) => void; onDelete: (meeting: Proposal) => void;
+  onEdit: (slots: Proposal[], focusAudience?: boolean) => void; onDelete: (meeting: Proposal) => void;
 }) {
   const t = copy[language];
   const [meeting] = slots;
@@ -381,6 +424,8 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
           <div className="meeting-heading-audience">
             <span><Ink text={t.audience} /></span>
             <AudienceIcons board={board} sets={sets} language={language} meeting={meeting} />
+            {meeting.canManage && <button className="project-secondary meeting-audience-edit" type="button" disabled={busy}
+              onClick={() => onEdit(slots, true)}><Ink text={t.changeAudience} /></button>}
           </div>
         </div>
         {meeting.canManage && <div className="meeting-management">
@@ -393,8 +438,8 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
     {confirmedSlot && <>
       <ProjectConfirmedTicket meetingId={meetingId} title={meeting.title} start={confirmedSlot.start} duration={confirmedSlot.duration}
         language={language} joinUrl={confirmedSlot.meetingUrl} />
-      {meeting.canManage && <div className="meeting-reopen"><button type="button" className="meeting-confirm-button" disabled={busy}
-        onClick={() => onConfirm(confirmedSlot)}><Ink text={t.reopen} /></button></div>}
+      {meeting.canManage && <div className="meeting-reopen meeting-management"><button type="button" className="meeting-delete" disabled={busy}
+        aria-haspopup="dialog" onClick={() => onConfirm(confirmedSlot)}><Ink text={t.reopen} /></button></div>}
     </>}
     <div className="meeting-people">
       <span className="meeting-team-progress"><Ink text={t.teamProgress} /> <b><Ink text={answeredPeople + " / " + meeting.totalRespondents} /></b></span>
@@ -451,6 +496,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<Mode>("reply");
   const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("all");
+  const [todayInTokyo, setTodayInTokyo] = useState(() => wallTime(Date.now(), TOKYO).slice(0, 10));
   const [editingRespondent, setEditingRespondent] = useState(false);
   const [initials, setInitials] = useState(false);
   const [chosen, setChosen] = useState<ProjectAvatar | null>(null);
@@ -469,8 +515,12 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const [title, setTitle] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [respondentAvatars, setRespondentAvatars] = useState<ProjectAvatar[]>([]);
+  const [audienceTouched, setAudienceTouched] = useState(false);
   const [dialog, setDialog] = useState<MeetingDialog | null>(null);
-  const [editing, setEditing] = useState<{ item: Proposal; saved: ProposalInput; confirmed?: Proposal } | null>(null);
+  const [submittingDialog, setSubmittingDialog] = useState(false);
+  const [editing, setEditing] = useState<{
+    item: Proposal; saved: ProposalInput; slots: Pick<Proposal, "id" | "start">[]; confirmed?: Proposal; legacyTargeted: boolean;
+  } | null>(null);
 
   const token = useRef("");
   const authRevision = useRef(0);
@@ -480,6 +530,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const content = useRef<HTMLElement>(null);
   const casting = useRef<HTMLElement>(null);
   const confirmation = useRef<HTMLDialogElement>(null);
+  const audienceFields = useRef<HTMLFieldSetElement>(null);
   const newProposalDraft = useRef<ProposalInput | null>(null);
   const t = copy[language];
   const profile = board?.profile;
@@ -504,8 +555,11 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     if (group) group.push(slot);
     else meetings.set(key, [slot]);
   }
-  const orderedMeetings = [...meetings].sort(([, a], [, b]) =>
-    Number(a[0].meetingClosed) - Number(b[0].meetingClosed) || Number(b[0].eligible) - Number(a[0].eligible));
+  const orderedMeetings = [...meetings].flatMap(([id, slots]) => {
+    const { complete, hidden } = getProjectMeetingStatus(slots, todayInTokyo);
+    return hidden ? [] : [[id, slots, complete] as const];
+  }).sort(([, a, aComplete], [, b, bComplete]) =>
+    Number(aComplete) - Number(bComplete) || Number(b[0].eligible) - Number(a[0].eligible));
   const meetingLists = {
     all: orderedMeetings,
     mine: orderedMeetings.filter(([, slots]) => slots.some(slot => slot.eligible)),
@@ -519,14 +573,29 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     all: t.noProposals, mine: t.noMyMeetings, created: t.noCreatedMeetings, confirmed: t.noConfirmedMeetings,
   };
   const displayedMeetings = meetingLists[meetingFilter];
+  const firstCompletedId = displayedMeetings.find(([, , complete]) => complete)?.[0];
   const selectedMeeting = displayedMeetings.find(([id]) => id === activeMeetingId) ?? displayedMeetings[0];
   const selectedMeetingId = selectedMeeting?.[0];
   const audienceSlot = selectedMeeting?.[1][0];
   const editedConfirmation = editing?.confirmed;
   const editReopens = editedConfirmation && preview?.starts
     && (duration !== editedConfirmation.duration || !preview.starts.includes(editedConfirmation.start));
-  const canResetDraft = Boolean(title || meetingUrl || respondentAvatars.length || windows.length > 1
-    || windows[0]?.from || windows[0]?.to || duration !== 30 || windows[0]?.date !== wallTime(Date.now(), zone).slice(0, 10));
+  const editedTimes = preview?.starts;
+  const editRemovesSlots = editing && editedTimes
+    && (duration !== editing.saved.duration || editing.slots.some(slot => !editedTimes.includes(slot.start)));
+  const audienceChanged = editing && audienceTouched && (editing.legacyTargeted
+    || respondentAvatars.length !== editing.saved.respondentAvatars.length
+    || respondentAvatars.some(avatar => !editing.saved.respondentAvatars.includes(avatar)));
+  const keepingLegacyAudience = editing?.legacyTargeted && !audienceChanged;
+  const dirtyEdit = editing && (title !== editing.saved.title || meetingUrl !== editing.saved.meetingUrl
+    || audienceChanged || zone !== editing.saved.zone || duration !== editing.saved.duration || windows.length !== editing.saved.windows.length
+    || windows.some((entry, index) => {
+      const saved = editing.saved.windows[index];
+      return entry.date !== saved.date || entry.from !== saved.from || entry.to !== saved.to;
+    }));
+  const canResetTimes = Boolean(windows.length > 1 || windows[0]?.from || windows[0]?.to
+    || windows[0]?.date !== wallTime(Date.now(), zone).slice(0, 10));
+  const canResetDraft = Boolean(title || meetingUrl || respondentAvatars.length || canResetTimes || duration !== 30);
 
   const refresh = useCallback(async () => {
     const revision = ++readRevision.current;
@@ -565,6 +634,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     setRevealed(null);
     setPending({});
     setRespondentAvatars([]);
+    setAudienceTouched(false);
     setTitle("");
     setMeetingUrl("");
     setDuration(30);
@@ -574,6 +644,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     newProposalDraft.current = null;
     setEditing(null);
     setDialog(null);
+    setSubmittingDialog(false);
     confirmation.current?.close();
     try {
       const current = await refresh();
@@ -614,10 +685,17 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   useEffect(() => { document.documentElement.lang = language; }, [language]);
   useEffect(() => {
     if (!signedIn) return;
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") void refresh().catch(() => {});
-    }, 10000);
-    return () => window.clearInterval(interval);
+    function updateVisibleBoard() {
+      if (document.visibilityState !== "visible") return;
+      setTodayInTokyo(wallTime(Date.now(), TOKYO).slice(0, 10));
+      void refresh().catch(() => {});
+    }
+    const interval = window.setInterval(updateVisibleBoard, 10000);
+    document.addEventListener("visibilitychange", updateVisibleBoard);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", updateVisibleBoard);
+    };
   }, [refresh, signedIn]);
 
   const needsWide = mode === "reply" && !chooseRespondent && Boolean(board?.proposals.some(proposal => {
@@ -678,16 +756,47 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
       if (authRevision.current !== session) return false;
       const message = (error as Error).message as Message;
       setFeedback({ message, error: true });
-      if (message === "avatarTaken" || message === "closed") void refresh().catch(() => {});
+      if (message === "avatarTaken" || message === "closed" || message === "staleMeeting") void refresh().catch(() => {});
       return false;
     } finally {
       if (authRevision.current === session) setBusy(false);
     }
   }
 
-  async function vote(item: Proposal, choice: ProjectChoice) {
-    if (!board || !item.eligible || item.meetingClosed || votesInFlight.current.has(item.id)) return;
-    const canceling = item.ownChoice === choice;
+  function openDialog(next: MeetingDialog) {
+    setFeedback(undefined);
+    setDialog(next);
+  }
+
+  function dismissDialog() {
+    setDialog(null);
+    confirmation.current?.close();
+  }
+
+  function confirmDraftChange(action: Message, prompt: Message, run: () => void) {
+    openDialog({
+      heading: action, prompt, submit: action, destructive: true,
+      run: () => { run(); return true; },
+    });
+  }
+
+  function chooseVote(item: Proposal, choice: ProjectChoice) {
+    if (item.ownChoice === choice) {
+      openDialog({
+        heading: "removeVote", prompt: "removeVotePrompt", submit: "removeVote", item, showTime: true, destructive: true,
+        run: async () => {
+          if (!await vote(item, choice, true)) return false;
+          requestAnimationFrame(() => document.getElementById(`slot-${item.id}`)?.focus({ preventScroll: true }));
+          return true;
+        },
+      });
+    } else {
+      void vote(item, choice);
+    }
+  }
+
+  async function vote(item: Proposal, choice: ProjectChoice, canceling = false) {
+    if (!board || !item.eligible || item.meetingClosed || votesInFlight.current.has(item.id)) return false;
     const nextChoice = canceling ? null : choice;
     const session = authRevision.current;
     votesInFlight.current.add(item.id);
@@ -699,10 +808,10 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     });
     try {
       const result = await boardRequest<{ canceled?: boolean }>(token.current, { action: canceling ? "cancelVote" : "vote", id: item.id, choice });
-      if (authRevision.current !== session) return;
+      if (authRevision.current !== session) return false;
       if (canceling && !result.canceled) {
         await refresh().catch(() => {});
-        return;
+        return true;
       }
       setBoard(previous => previous ? {
         ...previous,
@@ -718,12 +827,14 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
       setVoteFeedback(old => ({ ...old, [item.id]: { message: canceling ? "voteCanceled" : "voted" } }));
       setRevealed(previous => canceling && previous !== item.id ? previous : nextChoice ? item.id : null);
       await refresh().catch(() => {});
+      return true;
     } catch (error) {
-      if (authRevision.current !== session) return;
+      if (authRevision.current !== session) return false;
       const message = (error as Error).message as Message;
-      if (message === "seatTaken") setFeedback({ message, error: true });
+      if (canceling || message === "seatTaken") setFeedback({ message: message === "closed" ? "closedVote" : message, error: true });
       else setVoteFeedback(old => ({ ...old, [item.id]: { message: message === "closed" ? "closedVote" : message, error: true } }));
       void refresh().catch(() => {});
+      return false;
     } finally {
       if (authRevision.current === session) {
         votesInFlight.current.delete(item.id);
@@ -737,10 +848,14 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   }
 
   function switchMode(next: Mode) {
-    if (editing && next === "reply") endEdit();
-    setMode(next);
-    setFeedback(undefined);
-    requestAnimationFrame(() => content.current?.focus({ preventScroll: next === "reply" }));
+    function changeMode() {
+      if (editing && next === "reply") endEdit();
+      setMode(next);
+      setFeedback(undefined);
+      requestAnimationFrame(() => content.current?.focus({ preventScroll: next === "reply" }));
+    }
+    if (dirtyEdit && next === "reply") confirmDraftChange("discardEdit", "discardEditPrompt", changeMode);
+    else changeMode();
   }
 
   function selectMeeting(id: string) {
@@ -766,6 +881,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   function resetProposal() {
     if (editing) {
       applyProposalInput(editing.saved);
+      setAudienceTouched(false);
     } else {
       applyProposalInput({
         title: "", meetingUrl: "", zone, duration: 30, respondentAvatars: [],
@@ -782,23 +898,30 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     requestAnimationFrame(() => document.getElementById(`project-window-date-${key}`)?.focus());
   }
 
-  function editMeeting(slots: Proposal[]) {
+  function editMeeting(slots: Proposal[], focusAudience = false) {
     const [item] = slots;
+    const meetingId = item.meetingId ?? item.id;
+    const legacy = board?.legacyAudience?.[meetingId];
+    const savedAvatars = board?.meetingAudience[meetingId]?.map(target => target.avatar)
+      ?? legacy?.members.flatMap(member => member.avatar ? [member.avatar] : []) ?? [];
     newProposalDraft.current = { title, meetingUrl, windows, zone, duration, respondentAvatars };
     const saved = {
-      title: item.title, meetingUrl: item.meetingUrl ?? "", zone, duration: item.duration, respondentAvatars: [],
+      title: item.title, meetingUrl: item.meetingUrl ?? "", zone, duration: item.duration,
+      respondentAvatars: [...new Set(savedAvatars)],
       windows: slots.map(slot => {
         const time = wallTime(slot.start, zone);
         return { key: nextWindowKey.current++, date: time.slice(0, 10), from: time.slice(11, 16), to: "" };
       }),
     };
-    setEditing({ item, saved, confirmed: slots.find(slot => slot.confirmed) });
+    setEditing({ item, saved, slots, confirmed: slots.find(slot => slot.confirmed), legacyTargeted: legacy?.all === false });
+    setAudienceTouched(false);
     applyProposalInput(saved);
     setMode("propose");
     setFeedback(undefined);
     requestAnimationFrame(() => {
-      content.current?.focus({ preventScroll: true });
-      content.current?.scrollIntoView({ block: "start" });
+      const focus = focusAudience ? audienceFields.current : content.current;
+      focus?.focus({ preventScroll: true });
+      focus?.scrollIntoView({ block: "start" });
     });
   }
 
@@ -806,6 +929,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     if (newProposalDraft.current) applyProposalInput(newProposalDraft.current);
     newProposalDraft.current = null;
     setEditing(null);
+    setAudienceTouched(false);
   }
 
   function retryPortraits() {
@@ -814,6 +938,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   }
 
   function toggleAudience(avatar: ProjectAvatar) {
+    setAudienceTouched(true);
     setRespondentAvatars(old => old.includes(avatar) ? old.filter(entry => entry !== avatar) : [...old, avatar]);
   }
 
@@ -864,55 +989,86 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     requestAnimationFrame(() => document.getElementById(`project-window-date-${key}`)?.focus());
   }
 
-  async function propose(event: FormEvent<HTMLFormElement>) {
+  function propose(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!preview?.starts?.length || readyWindows.length !== windows.length) return;
+    if (editing && (editRemovesSlots || audienceChanged)) {
+      const prompt = editRemovesSlots
+        ? editReopens ? "saveRemovedBookingPrompt" : "saveRemovedSlotsPrompt"
+        : "changeAudiencePrompt";
+      openDialog({
+        heading: "saveEdit", prompt, submit: "saveEdit",
+        detail: audienceChanged ? "audienceChangeDetail" : undefined,
+        item: editing.item, destructive: Boolean(editRemovesSlots), run: saveProposal,
+      });
+    } else {
+      void saveProposal();
+    }
+  }
+
+  async function saveProposal() {
     const entries = { title, meetingUrl, windows: windows.map(({ date, from, to }) => ({ date, from, to })), zone, duration };
     const created = await perform<{ meetingId: string | null; id: string }>({
-      ...entries, ...(editing ? { action: "edit", id: editing.item.id } : { action: "propose", respondentAvatars }),
+      ...entries, ...(editing
+        ? { action: "edit", id: editing.item.id, expectedSlotIds: editing.slots.map(slot => slot.id),
+          expectedConfirmedSlotId: editing.confirmed?.id ?? null, ...(audienceChanged ? { respondentAvatars } : {}) }
+        : { action: "propose", respondentAvatars }),
     }, editing ? "savedEdit" : "posted");
-    if (created) {
-      if (editing) {
-        endEdit();
-      } else {
-        setTitle("");
-        setMeetingUrl("");
-        setWindows([{ key: nextWindowKey.current++, date: wallTime(Date.now(), zone).slice(0, 10), from: "", to: "" }]);
-        setRespondentAvatars([]);
-      }
-      setMeetingFilter("all");
-      setLinkedMeeting(created.meetingId ?? created.id);
-      setActiveMeetingId(created.meetingId ?? created.id);
-      setMode("reply");
-      requestAnimationFrame(() => content.current?.focus({ preventScroll: true }));
+    if (!created) return false;
+    if (editing) {
+      endEdit();
+    } else {
+      setTitle("");
+      setMeetingUrl("");
+      setWindows([{ key: nextWindowKey.current++, date: wallTime(Date.now(), zone).slice(0, 10), from: "", to: "" }]);
+      setRespondentAvatars([]);
+      setAudienceTouched(false);
     }
+    setMeetingFilter("all");
+    setLinkedMeeting(created.meetingId ?? created.id);
+    setActiveMeetingId(created.meetingId ?? created.id);
+    setMode("reply");
+    requestAnimationFrame(() => content.current?.focus({ preventScroll: true }));
+    return true;
   }
 
   function openConfirm(item: Proposal) {
-    if (item.confirmed) {
-      void perform({ action: "reopen", id: item.id }, "reopened");
-    } else {
-      setFeedback(undefined);
-      setDialog({ action: "confirm", item });
-    }
+    const action = item.confirmed ? "reopen" : "confirm";
+    openDialog({
+      heading: action, prompt: item.confirmed ? "reopenPrompt" : "confirmPrompt",
+      submit: action, item, showTime: true, destructive: item.confirmed,
+      run: async () => {
+        if (!await perform({ action, id: item.id }, item.confirmed ? "reopened" : "confirmedSaved")) return false;
+        if (item.confirmed && meetingFilter === "confirmed") setMeetingFilter("all");
+        return true;
+      },
+    });
   }
 
   function openDelete(item: Proposal) {
-    setFeedback(undefined);
-    setDialog({ action: "delete", item });
+    openDialog({
+      heading: "deleteMeeting", prompt: item.meetingClosed ? "deleteConfirmedPrompt" : "deletePrompt",
+      submit: "deleteMeeting", item, destructive: true,
+      run: async () => {
+        if (!await perform({ action: "delete", id: item.id }, "deletedMeeting")) return false;
+        const meetingId = item.meetingId ?? item.id;
+        if (linkedMeeting === meetingId) setLinkedMeeting(null);
+        if (activeMeetingId === meetingId) setActiveMeetingId(null);
+        requestAnimationFrame(() => content.current?.focus({ preventScroll: true }));
+        return true;
+      },
+    });
   }
 
   async function submitDialog() {
-    if (!dialog) return;
-    const { action, item } = dialog;
-    if (!await perform({ action, id: item.id }, action === "delete" ? "deletedMeeting" : "confirmedSaved")) return;
-    if (action === "delete") {
-      const meetingId = item.meetingId ?? item.id;
-      if (linkedMeeting === meetingId) setLinkedMeeting(null);
-      if (activeMeetingId === meetingId) setActiveMeetingId(null);
-      requestAnimationFrame(() => content.current?.focus({ preventScroll: true }));
+    if (!dialog || submittingDialog || busy) return;
+    const session = authRevision.current;
+    setSubmittingDialog(true);
+    try {
+      if (await dialog.run() && session === authRevision.current) dismissDialog();
+    } finally {
+      if (session === authRevision.current) setSubmittingDialog(false);
     }
-    confirmation.current?.close();
   }
 
   const status = feedback && <p className={"project-feedback" + (feedback.error ? " is-error" : "")}
@@ -1009,7 +1165,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
             {(mode === "propose" || audienceSlot) && <div className="toolbar-audience" role="group" aria-label={t.audience}>
               <strong><Ink text={t.audience} /></strong>
               <AudienceIcons board={board} sets={sets} language={language} limit={4}
-                meeting={mode === "propose" ? editing?.item : audienceSlot} draft={respondentAvatars} />
+                meeting={mode === "propose" ? audienceChanged ? undefined : editing?.item : audienceSlot} draft={respondentAvatars} />
             </div>}
             <nav className="project-mode" aria-label={t.mode}>
               {(["reply", "propose"] as const).map(action => <button key={action} type="button" data-mode={action}
@@ -1032,23 +1188,27 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                   </button>)}
                 </div>
                 {displayedMeetings.length > 0 && <ul className="meeting-index">
-                  {displayedMeetings.map(([id, slots]) => {
+                  {displayedMeetings.map(([id, slots, complete]) => {
                     const [first] = slots;
                     const confirmed = slots.find(slot => slot.confirmed);
                     const pendingCount = slots.filter(slot => slot.eligible && !slot.ownChoice).length;
                     const active = id === selectedMeetingId;
-                    const state = confirmed ? "confirmed" : first.meetingClosed ? "closed" : !first.eligible ? "open" : pendingCount ? "pending" : "answered";
-                    const label = state === "confirmed" ? t.confirmedMeetings : state === "closed" ? t.closed : state === "open" ? t.open
+                    const state = confirmed ? "confirmed" : complete ? "complete" : first.meetingClosed ? "closed"
+                      : !first.eligible ? "open" : pendingCount ? "pending" : "answered";
+                    const label = state === "confirmed" ? t.confirmedMeetings : state === "complete" ? t.complete : state === "closed" ? t.closed : state === "open" ? t.open
                       : state === "answered" ? t.votedState : language === "ja" ? `未回答 ${pendingCount}枠` : `${pendingCount} unanswered`;
                     const date = confirmed?.start ?? first.start;
-                    return <li key={id}>
-                      <button className="meeting-index-item" type="button" aria-current={active ? "true" : undefined} onClick={() => selectMeeting(id)}>
-                        <span className="meeting-index-title">{first.title || t.meeting}</span>
-                        <span className="meeting-index-badge" data-state={state}>{label}</span>
-                        <span className="meeting-index-date">{dateLabel(date, zone, language)} · {timeLabel(date, zone, language)} {zone === COLOMBO ? "SLST" : "JST"}</span>
-                        <ChevronRight size={16} className="meeting-index-chevron" aria-hidden="true" />
-                      </button>
-                    </li>;
+                    return <Fragment key={id}>
+                      {id === firstCompletedId && <li className="meeting-index-completed"><h3><Ink text={t.completedMeetings} /></h3></li>}
+                      <li>
+                        <button className="meeting-index-item" type="button" aria-current={active ? "true" : undefined} onClick={() => selectMeeting(id)}>
+                          <span className="meeting-index-title">{first.title || t.meeting}</span>
+                          <span className="meeting-index-badge" data-state={state}>{label}</span>
+                          <span className="meeting-index-date">{dateLabel(date, zone, language)} · {timeLabel(date, zone, language)} {zone === COLOMBO ? "SLST" : "JST"}</span>
+                          <ChevronRight size={16} className="meeting-index-chevron" aria-hidden="true" />
+                        </button>
+                      </li>
+                    </Fragment>;
                   })}
                 </ul>}
               </nav>
@@ -1060,7 +1220,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                 }}><ArrowUp size={15} aria-hidden="true" />{language === "ja" ? <Ink text={t.meetingList} /> : t.meetingList}</button>
                 <MeetingCard key={selectedMeeting[0]} slots={selectedMeeting[1]} board={board} sets={sets}
                   language={language} pending={pending} feedback={voteFeedback} busy={busy} revealed={revealed}
-                  onVote={(slot, choice) => { void vote(slot, choice); }} onConfirm={openConfirm} onEdit={editMeeting} onDelete={openDelete} />
+                  onVote={chooseVote} onConfirm={openConfirm} onEdit={editMeeting} onDelete={openDelete} />
               </div> : <div className="meeting-index-empty"><p>{emptyMeetingFilter[meetingFilter]}</p>
                 <button type="button" className="project-secondary" onClick={() => setMeetingFilter("all")}>{t.allMeetings}</button>
               </div>}
@@ -1070,10 +1230,14 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
             <header className="proposal-title schedule-form-heading">
               <h2 id="project-new-time"><Ink text={editing ? t.editHeading : t.propose} /></h2>
               <div className="proposal-edit-actions">
-                {editing && <button type="button" className="project-secondary" disabled={busy} onClick={resetCandidateTimes}>
+                {(editing || canResetTimes) && <button type="button" className="project-secondary" disabled={busy || !canResetTimes} aria-haspopup="dialog"
+                  onClick={() => confirmDraftChange("resetCandidateTimes", "resetTimesPrompt", resetCandidateTimes)}>
                   <Ink text={t.resetCandidateTimes} />
                 </button>}
-                <button type="button" className="project-secondary" disabled={busy || (!editing && !canResetDraft)} onClick={resetProposal}>
+                <button type="button" className="project-secondary" disabled={busy || !(editing ? dirtyEdit : canResetDraft)} aria-haspopup="dialog"
+                  onClick={() => editing
+                    ? confirmDraftChange("restoreEdit", "restoreEditPrompt", resetProposal)
+                    : confirmDraftChange("resetDraft", "resetDraftPrompt", resetProposal)}>
                   <Ink text={editing ? t.restoreEdit : t.resetDraft} />
                 </button>
               </div>
@@ -1113,8 +1277,13 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                           <input aria-label={t.end} type="time" value={window.to} onInput={event => updateWindow(window.key, { to: event.currentTarget.value })} />
                         </DisplayedInput>
                       </Field>
-                      {windows.length > 1 && <button className="proposal-remove" type="button" aria-label={t.window + " " + (index + 1) + " · " + t.removeWindow}
-                        onClick={() => setWindows(old => old.filter(entry => entry.key !== window.key))}><Ink text={t.removeWindow} /></button>}
+                      {windows.length > 1 && <button className="proposal-remove" type="button" aria-haspopup="dialog"
+                        aria-label={t.window + " " + (index + 1) + " · " + t.removeWindow}
+                        onClick={() => confirmDraftChange("removeWindow", "removeWindowPrompt", () => {
+                          setWindows(old => old.filter(entry => entry.key !== window.key));
+                          const neighbor = windows[index + 1] ?? windows[index - 1];
+                          requestAnimationFrame(() => document.getElementById(`project-window-date-${neighbor.key}`)?.focus());
+                        })}><Ink text={t.removeWindow} /></button>}
                     </div>)}
                   </div>
                   <button className="proposal-window-add" type="button" onClick={addWindow}>
@@ -1122,12 +1291,15 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                   </button>
                   {preview?.error && <p className="project-feedback is-error" role="status"><Ink text={t[preview.error]} /></p>}
                 </section>
-                {!editing && <fieldset className="proposal-cast">
+                <fieldset className="proposal-cast" ref={audienceFields} tabIndex={-1}>
                   <legend><Ink text={t.respondents} /></legend>
                   <div className="proposal-cast-intro">
-                    <p><Ink text={t.audienceHint} /></p>
-                    <button className="proposal-everyone" type="button" aria-pressed={respondentAvatars.length === 0}
-                      disabled={busy} onClick={() => setRespondentAvatars([])}>
+                    <p><Ink text={keepingLegacyAudience ? t.legacyAudienceHint : t.audienceHint} /></p>
+                    <button className="proposal-everyone" type="button" aria-pressed={!keepingLegacyAudience && respondentAvatars.length === 0}
+                      disabled={busy} onClick={() => {
+                        setAudienceTouched(true);
+                        setRespondentAvatars([]);
+                      }}>
                       <Ink text={t.allMembers} />
                     </button>
                   </div>
@@ -1151,11 +1323,11 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                     {portraitErrors.kirie ? <><Ink text={t.portraitFailed} /> <button className="project-secondary" type="button" onClick={retryPortraits}><Ink text={t.refresh} /></button></> : <Ink text={t.loading} />}
                   </p>}
                   <p className="proposal-cast-status" role="status">
-                    <Ink text={respondentAvatars.length
+                    <Ink text={keepingLegacyAudience ? t.existingAudience : respondentAvatars.length
                       ? (language === "ja" ? `${respondentAvatars.length}人に回答を依頼` : `${respondentAvatars.length} selected`)
                       : (language === "ja" ? "全員に回答を依頼" : "Everyone can respond")} />
                   </p>
-                </fieldset>}
+                </fieldset>
 
               </div>
 
@@ -1167,7 +1339,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                   </header>
                   {title.trim() && <p className="proposal-review-title"><Ink text={title.trim()} /></p>}
                   <div className="proposal-recipients">
-                    {editing ? <AudienceIcons board={board} sets={sets} language={language} meeting={editing.item} limit={4} /> : <>
+                    {editing && !audienceChanged ? <AudienceIcons board={board} sets={sets} language={language} meeting={editing.item} limit={4} /> : <>
                     {respondentAvatars.length && activePortraits ? <div className="proposal-face-stack" aria-hidden="true">
                       {respondentAvatars.map(avatar => <img key={avatar} src={activePortraits[avatar]} alt="" width={28} height={28} />)}
                     </div> : null}
@@ -1188,8 +1360,10 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                     <p className="proposal-preview-empty"><Ink text={language === "ja" ? "日付と開始時刻を入れると、両国の候補日時が並びます。" : "Enter a date and start time to see the slots in both countries."} /></p>}
                 </div>
                 <div className={`proposal-ticket-bottom${editing ? " proposal-editor-footer" : ""}`}>
-                  {editing && <button type="button" className="project-secondary" disabled={busy} onClick={() => switchMode("reply")}><Ink text={t.cancelEdit} /></button>}
-                  <button type="submit" className="proposal-submit" disabled={busy || !preview?.starts?.length || readyWindows.length !== windows.length}>
+                  {editing && <button type="button" className="project-secondary" disabled={busy} aria-haspopup={dirtyEdit ? "dialog" : undefined}
+                    onClick={() => switchMode("reply")}><Ink text={t.cancelEdit} /></button>}
+                  <button type="submit" className="proposal-submit" aria-haspopup={editRemovesSlots || audienceChanged ? "dialog" : undefined}
+                    disabled={busy || !preview?.starts?.length || readyWindows.length !== windows.length}>
                     <Ink text={busy ? t.saving : editing ? t.saveEdit : t.post} />
                   </button>
                 </div>
@@ -1208,24 +1382,31 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
         </section>
       </div>}
 
-      <dialog className="project-confirm" ref={confirmation} aria-labelledby="project-confirm-title"
-        onCancel={event => { if (busy) event.preventDefault(); }} onClose={() => setDialog(null)}>
+      <dialog className="project-confirm" ref={confirmation} aria-labelledby="project-confirm-title" aria-describedby="project-confirm-description"
+        onCancel={event => {
+          event.preventDefault();
+          if (!busy && !submittingDialog) dismissDialog();
+        }}>
         {dialog && <>
           <header>
             <img src="/project/art/u04.webp" width={32} height={32} alt="" />
-            <h2 id="project-confirm-title"><Ink text={dialog.action === "delete" ? t.deleteHeading : t.confirm} /></h2>
+            <h2 id="project-confirm-title"><Ink text={t[dialog.heading]} /></h2>
           </header>
           <div>
-            <h3><Ink text={dialog.item.title || t.meeting} /></h3>
-            {dialog.action === "confirm" && <ProjectTimes start={dialog.item.start} duration={dialog.item.duration} language={language} />}
-            <p><Ink text={dialog.action === "delete" ? t.deletePrompt : t.confirmPrompt} /></p>
+            {dialog.item && <h3><Ink text={dialog.item.title || t.meeting} /></h3>}
+            {dialog.item && dialog.showTime && <ProjectTimes start={dialog.item.start} duration={dialog.item.duration} language={language} />}
+            <div id="project-confirm-description">
+              <p><Ink text={t[dialog.prompt]} /></p>
+              {dialog.detail && <p><Ink text={t[dialog.detail]} /></p>}
+            </div>
             {feedback?.error && status}
             <footer>
-              <button type="button" className="project-secondary" autoFocus disabled={busy} onClick={() => confirmation.current?.close()}>
-                <Ink text={dialog.action === "delete" ? t.cancelEdit : t.backToEntry} />
+              <button type="button" className="project-secondary" autoFocus disabled={busy || submittingDialog} onClick={dismissDialog}>
+                <Ink text={dialog.destructive ? t.cancelEdit : t.backToEntry} />
               </button>
-              <button type="button" className={`project-primary${dialog.action === "delete" ? " meeting-delete" : ""}`} disabled={busy} onClick={() => { void submitDialog(); }}>
-                <Ink text={busy ? t.saving : dialog.action === "delete" ? t.deleteHeading : t.confirm} />
+              <button type="button" className={`project-primary${dialog.destructive ? " meeting-delete" : ""}`}
+                disabled={busy || submittingDialog} onClick={() => { void submitDialog(); }}>
+                <Ink text={busy || submittingDialog ? t.saving : t[dialog.submit]} />
               </button>
             </footer>
           </div>

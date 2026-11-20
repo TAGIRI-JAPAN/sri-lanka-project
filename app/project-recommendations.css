@@ -22,6 +22,30 @@
   font-size: .875rem;
   line-height: 1.45;
 }
+.project-recommendation-retry {
+  margin-top: 12px;
+  padding: 9px 12px 11px;
+  border: 1px solid #dcb68c;
+  border-radius: 10px;
+  background: linear-gradient(115deg, #ffead1 0%, #fff7e5 100%);
+}
+.project-recommendation-retry-lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 12px;
+}
+.project-recommendation-retry-lead img {
+  display: block;
+  width: clamp(84px, 12vw, 108px);
+  height: auto;
+}
+.project-recommendation-retry-lead p {
+  margin: 0;
+  color: #664127;
+  font-size: .875rem;
+}
+.project-recommendation-retry .project-recommendation-people li { background: #fffaf0; }
 .project-recommendations-list {
   display: grid;
   gap: 8px;
