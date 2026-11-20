@@ -103,6 +103,7 @@ export function rankProjectCandidates(slots: readonly Proposal[]) {
 
 export type ProjectBoard = {
   organizer: boolean;
+  guest?: boolean;
   viewerId: string;
   memberName: string | null;
   profile: ProjectProfile | null;
