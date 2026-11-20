@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getProjectMember, isProjectOrganizer, newProjectGuestToken,
   openProjectProposal as openProposal, projectGuestCookie, projectGuestTokenPrefix, readProjectGuestToken } from "@/lib/project-access";
-import { AVATAR_IDS, customPortrait, expandCandidateWindows, PROJECT_COMPLETION_EMAIL, PROJECT_ORGANIZER_ID, PROJECT_ORGANIZER_NAME, projectCharacterName, projectChoices, type AvailabilityWindow, type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard, type ProjectChoice, type ProjectMember, type ProjectRespondent, type ProjectTargetRespondent, type Proposal } from "@/lib/project";
+import { AVATAR_IDS, customPortrait, expandCandidateWindows, MAX_PROJECT_SLOTS, PROJECT_COMPLETION_EMAIL, PROJECT_ORGANIZER_ID, PROJECT_ORGANIZER_NAME, projectCharacterName, projectChoices, type AvailabilityWindow, type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard, type ProjectChoice, type ProjectMember, type ProjectRespondent, type ProjectTargetRespondent, type Proposal } from "@/lib/project";
 import { DURATIONS, MAX_NAME_LENGTH, parseWall, uuid, validZone } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
@@ -187,7 +187,7 @@ async function joinProjectGuest(db: D1Database, request: Request, profile: Profi
   return response;
 }
 
-function saveResponse(db: D1Database, proposalId: string, memberId: string, response: SavedResponse, profile?: ProfileInput, verifyAudience = false) {
+function saveResponse(db: D1Database, proposalId: string, memberId: string, response: SavedResponse, profile?: ProfileInput, publicAudience = false) {
   const avatar = profile?.avatar ?? null;
   const avatarStyle = profile?.avatarStyle ?? null;
   const availability = response.availability === null ? null : JSON.stringify(response.availability);
@@ -195,22 +195,20 @@ function saveResponse(db: D1Database, proposalId: string, memberId: string, resp
     `INSERT INTO project_responses (proposal_id, member_id, choice, availability)
      SELECT id, ?, ?, ? FROM project_proposals
      WHERE id = ? AND ${openProposal}
-       AND (? = 0 OR (
-         meeting_id IS NOT NULL AND (
-           EXISTS (SELECT 1 FROM project_meeting_respondents target
+       AND CASE
+         WHEN EXISTS (SELECT 1 FROM project_meeting_respondents target WHERE target.meeting_id = project_proposals.meeting_id)
+           THEN EXISTS (SELECT 1 FROM project_meeting_respondents target
              WHERE target.meeting_id = project_proposals.meeting_id AND target.member_id = ?)
-           OR (json_array_length(respondents) = 0 AND NOT EXISTS (
-             SELECT 1 FROM project_meeting_respondents target WHERE target.meeting_id = project_proposals.meeting_id
-           ))
-         )
-       ))
+         WHEN ? = 1 THEN meeting_id IS NOT NULL AND json_array_length(respondents) = 0
+         ELSE json_array_length(respondents) = 0 OR ? IN (SELECT value FROM json_each(respondents))
+       END
        AND (? IS NULL OR EXISTS (
          SELECT 1 FROM project_profiles WHERE id = ? AND avatar = ? AND display_name IS ? AND (? IS NULL OR avatar_style = ?)
        ))
      ON CONFLICT (proposal_id, member_id) DO UPDATE SET choice = excluded.choice,
        availability = CASE WHEN excluded.availability IS NULL AND project_responses.choice = excluded.choice
          THEN project_responses.availability ELSE excluded.availability END`
-  ).bind(memberId, response.choice, availability, proposalId, Number(verifyAudience), memberId, avatar, memberId, avatar, profile?.name ?? null, avatarStyle, avatarStyle);
+  ).bind(memberId, response.choice, availability, proposalId, memberId, Number(publicAudience), memberId, avatar, memberId, avatar, profile?.name ?? null, avatarStyle, avatarStyle);
 }
 
 async function cancelProjectVote(db: D1Database, proposalId: string, memberId: string, choice: ProjectChoice) {
@@ -289,14 +287,47 @@ function registerOrganizerVoter(db: D1Database) {
 const meetingSlots = "meeting_id = ? OR (meeting_id IS NULL AND id = ?)";
 const existsAnchor = "EXISTS (SELECT 1 FROM project_proposals WHERE id = ? AND (meeting_id = ? OR (meeting_id IS NULL AND id = ?)))";
 
-async function editMeeting(db: D1Database, id: string, meetingId: string, title: string, duration: number, starts: number[], meetingUrl: string | null | undefined) {
+async function editMeeting(db: D1Database, id: string, meetingId: string, title: string, duration: number, starts: number[],
+  meetingUrl: string | null | undefined, respondentAvatars?: ProjectAvatar[], expectedSlotIds?: string[], expectedConfirmedSlotId?: string | null) {
   const candidates = JSON.stringify(starts);
   const additions = JSON.stringify(starts.map(start => ({ id: crypto.randomUUID(), start })));
   const sameSlot = "duration = ? AND start IN (SELECT value FROM json_each(?))";
   const anchor = [id, meetingId, meetingId] as const;
   const group = [meetingId, meetingId] as const;
   const urlUpdate = [meetingUrl !== undefined, meetingUrl ?? null] as const;
-  const [, update, , , , current] = await db.batch<{ id: string }>([
+  // The batch inserts new slots before removing old ones. Exclude the generated
+  // IDs so each write can compare the same original slot set within the transaction.
+  const slotsMatch = expectedSlotIds === undefined ? "" : `AND (
+    SELECT COUNT(*) = ? AND COUNT(CASE WHEN id IN (SELECT value FROM json_each(?)) THEN 1 END) = ?
+    FROM project_proposals WHERE (${meetingSlots})
+      AND id NOT IN (SELECT json_extract(value, '$.id') FROM json_each(?))
+  )`;
+  const confirmationMatches = expectedConfirmedSlotId === undefined ? "" : `AND ? IS (
+    SELECT id FROM project_proposals WHERE (${meetingSlots}) AND confirmed = 1 LIMIT 1
+  )`;
+  const guard = `${slotsMatch} ${confirmationMatches}`;
+  const guardParams = [
+    ...(expectedSlotIds === undefined ? [] : [expectedSlotIds.length, JSON.stringify(expectedSlotIds), expectedSlotIds.length, ...group, additions]),
+    ...(expectedConfirmedSlotId === undefined ? [] : [expectedConfirmedSlotId, ...group]),
+  ];
+  const avatars = JSON.stringify(respondentAvatars ?? []);
+  const updateAudience = respondentAvatars === undefined ? [] : [
+    db.prepare(`DELETE FROM project_meeting_respondents
+      WHERE meeting_id = ? AND avatar NOT IN (SELECT value FROM json_each(?)) AND ${existsAnchor} ${guard}`)
+      .bind(meetingId, avatars, ...anchor, ...guardParams),
+    db.prepare(`INSERT INTO project_meeting_respondents (meeting_id, avatar, member_id)
+      SELECT ?, target.value, profile.id FROM json_each(?) target
+      LEFT JOIN project_profiles profile ON profile.avatar = target.value
+        AND NOT EXISTS (SELECT 1 FROM project_proposals host_slot JOIN project_members host ON host.id = host_slot.proposer_id
+          WHERE host_slot.id = ? AND host.token GLOB 'guest-*')
+        AND NOT EXISTS (SELECT 1 FROM project_members guest WHERE guest.id = profile.id AND guest.token GLOB 'guest-*')
+        AND NOT EXISTS (SELECT 1 FROM project_meeting_respondents assigned WHERE assigned.meeting_id = ? AND assigned.member_id = profile.id)
+      WHERE ${existsAnchor} ${guard}
+      ON CONFLICT(meeting_id, avatar) DO NOTHING`)
+      .bind(meetingId, avatars, id, meetingId, ...anchor, ...guardParams),
+  ];
+  const results = await db.batch<{ id: string }>([
+    db.prepare(`SELECT 1 WHERE ${existsAnchor} ${guard}`).bind(...anchor, ...guardParams),
     db.prepare(`INSERT INTO project_proposals (id, meeting_id, title, proposer_id, start, duration, respondents, meeting_url)
       SELECT json_extract(candidate.value, '$.id'), ?, ?, anchor.proposer_id,
         json_extract(candidate.value, '$.start'), ?, anchor.respondents, CASE WHEN ? THEN ? ELSE anchor.meeting_url END
@@ -305,22 +336,27 @@ async function editMeeting(db: D1Database, id: string, meetingId: string, title:
         AND NOT EXISTS (
           SELECT 1 FROM project_proposals
           WHERE (${meetingSlots}) AND duration = ? AND start = json_extract(candidate.value, '$.start')
-        )`)
-      .bind(meetingId, title, duration, ...urlUpdate, additions, ...anchor, ...group, duration),
+        ) ${guard}`)
+      .bind(meetingId, title, duration, ...urlUpdate, additions, ...anchor, ...group, duration, ...guardParams),
     // Promote a legacy single slot to a group without changing its existing link.
-    db.prepare(`UPDATE project_proposals SET title = ?, meeting_id = ?, meeting_url = CASE WHEN ? THEN ? ELSE meeting_url END
-      WHERE (${meetingSlots}) AND ${sameSlot} AND ${existsAnchor}`)
-      .bind(title, meetingId, ...urlUpdate, ...group, duration, candidates, ...anchor),
+    db.prepare(`UPDATE project_proposals SET title = ?, meeting_id = ?, meeting_url = CASE WHEN ? THEN ? ELSE meeting_url END,
+      respondents = CASE WHEN ? THEN '[]' ELSE respondents END
+      WHERE (${meetingSlots}) AND ${sameSlot} AND ${existsAnchor} ${guard}`)
+      .bind(title, meetingId, ...urlUpdate, respondentAvatars !== undefined, ...group, duration, candidates, ...anchor, ...guardParams),
     db.prepare(`DELETE FROM project_responses WHERE proposal_id IN
-      (SELECT id FROM project_proposals WHERE (${meetingSlots}) AND NOT (${sameSlot})) AND ${existsAnchor}`)
-      .bind(...group, duration, candidates, ...anchor),
-    db.prepare(`DELETE FROM project_proposals WHERE (${meetingSlots}) AND NOT (${sameSlot}) AND ${existsAnchor}`)
-      .bind(...group, duration, candidates, ...anchor),
+      (SELECT id FROM project_proposals WHERE (${meetingSlots}) AND NOT (${sameSlot})) AND ${existsAnchor} ${guard}`)
+      .bind(...group, duration, candidates, ...anchor, ...guardParams),
+    ...updateAudience,
+    db.prepare(`DELETE FROM project_proposals WHERE (${meetingSlots}) AND NOT (${sameSlot}) AND ${existsAnchor} ${guard}`)
+      .bind(...group, duration, candidates, ...anchor, ...guardParams),
     // Removing an unanswered slot may complete the meeting for the first time.
     // Keep any earlier snapshot to retain one completion notification per meeting.
     queueCompletion(db, id, meetingId),
     db.prepare("SELECT id FROM project_proposals WHERE meeting_id = ? ORDER BY start, id LIMIT 1").bind(meetingId),
   ]);
+  const [snapshot, , update] = results;
+  const current = results[results.length - 1];
+  if (!snapshot.results.length && (expectedSlotIds !== undefined || expectedConfirmedSlotId !== undefined)) return fail("staleMeeting", 409);
   return update.meta.changes && current.results[0] ? json({ id: current.results[0].id, meetingId }) : fail("missing", 404);
 }
 
@@ -425,7 +461,7 @@ export async function GET(request: Request) {
       };
     }
     const votes = responsesByProposal.get(row.id);
-    const ownResponse = votes?.get(profileId);
+    const ownResponse = canRespond(profileId) ? votes?.get(profileId) : undefined;
     const author = profiles.get(row.proposer_id ?? PROJECT_ORGANIZER_ID);
     const showAuthor = !guest || guestHosted;
     const proposer = guestHosted && author ? guestDisplayName(author)
@@ -652,35 +688,45 @@ export async function POST(request: Request) {
     if (!actor) return fail("inviteRequired", 403);
     const { id } = body;
     if (typeof id !== "string" || !uuid.test(id)) return fail("invalid", 400);
+    const { expectedSlotIds, expectedConfirmedSlotId } = body.action === "edit" ? body : {};
+    const checksSnapshot = expectedSlotIds !== undefined || expectedConfirmedSlotId !== undefined;
+    if (expectedSlotIds !== undefined && (!Array.isArray(expectedSlotIds) || !expectedSlotIds.length ||
+      expectedSlotIds.length > MAX_PROJECT_SLOTS || !expectedSlotIds.every(slotId => typeof slotId === "string" && uuid.test(slotId)) ||
+      new Set(expectedSlotIds).size !== expectedSlotIds.length)) return fail("invalid", 400);
+    if (expectedConfirmedSlotId !== undefined && expectedConfirmedSlotId !== null &&
+      (typeof expectedConfirmedSlotId !== "string" || !uuid.test(expectedConfirmedSlotId))) return fail("invalid", 400);
     const anchor = await db.prepare("SELECT proposer_id, meeting_id FROM project_proposals WHERE id = ?")
       .bind(id).first<Pick<ProposalRow, "proposer_id" | "meeting_id">>();
-    if (!anchor) return fail("missing", 404);
+    if (!anchor) return checksSnapshot ? fail("staleMeeting", 409) : fail("missing", 404);
     if (!canManage(organizer, member, anchor.proposer_id)) return fail("forbidden", 403);
     if (body.action === "delete") return deleteMeeting(db, id, anchor.meeting_id);
 
-    const { duration, windows, zone } = body;
+    const { duration, windows, zone, respondentAvatars } = body;
     const title = trimmed(body.title);
-    if (title.length > 100 || !validZone(zone) || !DURATIONS.includes(duration) || windows === undefined) {
+    if (title.length > 100 || !validZone(zone) || !DURATIONS.includes(duration) || windows === undefined ||
+      (respondentAvatars !== undefined && (!Array.isArray(respondentAvatars) || respondentAvatars.some(avatar => !AVATAR_IDS.includes(avatar))))) {
       return fail("invalid", 400);
     }
     const link = readMeetingUrl(body.meetingUrl);
     if (link.error) return fail(link.error, 400);
     const { starts, error } = readCandidateStarts(undefined, windows, zone, duration);
     if (!starts) return fail(error, 400);
-    return editMeeting(db, id, anchor.meeting_id ?? id, title, duration, starts, link.meetingUrl);
+    const avatars = respondentAvatars === undefined ? undefined : [...new Set<ProjectAvatar>(respondentAvatars)];
+    return editMeeting(db, id, anchor.meeting_id ?? id, title, duration, starts, link.meetingUrl, avatars, expectedSlotIds, expectedConfirmedSlotId);
   }
 
   if (body.action === "confirm" || body.action === "reopen") {
     if (!organizer && !member) return fail("inviteRequired", 403);
     if (typeof body.id !== "string" || !uuid.test(body.id)) return fail("invalid", 400);
     const item = await db.prepare("SELECT proposer_id FROM project_proposals WHERE id = ?").bind(body.id).first<{ proposer_id: string | null }>();
-    if (!item) return fail("missing", 404);
+    if (!item) return body.action === "reopen" ? fail("staleMeeting", 409) : fail("missing", 404);
     if (!canManage(organizer, member, item.proposer_id)) return fail("forbidden", 403);
     if (body.action === "confirm") {
       const result = await db.prepare(`UPDATE project_proposals SET confirmed = 1 WHERE id = ? AND ${openProposal}`).bind(body.id).run();
       if (!result.meta.changes) return fail("closed", 409);
     } else {
-      await db.prepare("UPDATE project_proposals SET confirmed = 0 WHERE id = ?").bind(body.id).run();
+      const result = await db.prepare("UPDATE project_proposals SET confirmed = 0 WHERE id = ? AND confirmed = 1").bind(body.id).run();
+      if (!result.meta.changes) return fail("staleMeeting", 409);
     }
     return json({ saved: true });
   }
