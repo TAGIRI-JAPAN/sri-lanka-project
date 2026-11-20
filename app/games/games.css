@@ -494,6 +494,33 @@
   line-height: 1.45;
 }
 
+.game-catalog-video {
+  max-width: 38rem;
+  margin: clamp(14px, 2.5vw, 24px) auto 0;
+  border: 1px solid #ab966b;
+  border-radius: 10px;
+  background: #fffaec;
+  color: #314936;
+}
+
+.game-catalog-video video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 0 0 9px 9px;
+  background: #13221b;
+  color-scheme: dark;
+  object-fit: contain;
+}
+
+.game-catalog-video figcaption {
+  padding: 8px 11px 9px;
+  border-bottom: 1px solid #d4c49b;
+  font-size: .875rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .game-catalog-footer {
   border-top: 1px solid #786c47;
 }
