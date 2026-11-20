@@ -632,12 +632,16 @@ export async function POST(request: Request) {
     const response: SavedResponse = { choice: body.choice, availability };
     if (publicVote) {
       if (actor.id === PROJECT_ORGANIZER_ID) await registerOrganizerVoter(db);
-      const [, saved, , status] = await db.batch<{ open: number }>([
+      const repair = item.open && item.uses_portraits && !item.selected && item.meeting_id
+        ? [repairProjectGuestSeats(db, [item.meeting_id])] : [];
+      const results = await db.batch<{ open: number }>([
+        ...repair,
         claimOpenSeat(db, body.id, actor.id),
         saveResponse(db, body.id, actor.id, response, undefined, true),
         queueCompletion(db, body.id, item.meeting_id),
         db.prepare(`SELECT (${openProposal}) AS open FROM project_proposals WHERE id = ?`).bind(body.id),
       ]);
+      const [, saved, , status] = results.slice(repair.length);
       if (saved.meta.changes) return json({ saved: true });
       if (!status.results[0]) return fail("missing", 404);
       return fail(status.results[0].open ? "seatTaken" : "closed", 409);
