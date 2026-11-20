@@ -1,4 +1,4 @@
-import { projectMarks, PROJECT_ORGANIZER_NAME, projectRetryRespondents, rankProjectCandidates, type ProjectAvatar, type ProjectBoard, type ProjectPortraits, type Proposal } from "@/lib/project";
+import { projectCharacterName, projectMarks, PROJECT_ORGANIZER_NAME, projectRetryRespondents, rankProjectCandidates, type ProjectAvatar, type ProjectBoard, type ProjectPortraits, type Proposal } from "@/lib/project";
 import { COLOMBO, dateLabel, timeRange, TOKYO, type Language } from "@/lib/schedule";
 import { Ink } from "./editorial-ink";
 import "./project-recommendations.css";
@@ -16,7 +16,7 @@ const copy = {
     emptyAfterRetry: "順位を出せる回答がまだありません。",
     retry: "リトライ", retryPeople: "全候補に「×」と回答した人", retryRule: "下の人を除いた回答で順位を出します。",
     preferred: "最優先", yes: "参加可", maybe: "要相談", no: "参加不可", pending: "未回答",
-    organizer: "主催者", character: "キャラクター", unlinked: "本人未登録",
+    organizer: "主催者", character: "キャラクター",
     confirm: "この候補を確定",
     count: (value: number) => `${value}人`,
   },
@@ -27,7 +27,7 @@ const copy = {
     emptyAfterRetry: "There are no remaining responses to rank yet.",
     retry: "Retry", retryPeople: "Unavailable at every proposed time", retryRule: "The rankings use the other participants’ responses.",
     preferred: "Preferred", yes: "Yes", maybe: "Maybe", no: "No", pending: "Awaiting response",
-    organizer: "Organizer", character: "Character", unlinked: "Not yet linked",
+    organizer: "Organizer", character: "Character",
     confirm: "Confirm this time",
     count: (value: number) => `${value} ${value === 1 ? "person" : "people"}`,
   },
@@ -70,10 +70,10 @@ export function ProjectRecommendations({ slots, board, portraits, language, busy
   const unlinked = targets.filter(target => !target.member).map(({ avatar }) => ({
     key: avatar,
     avatar,
-    name: `${t.character} ${Number(avatar)} · ${t.unlinked}`,
+    name: projectCharacterName(avatar) ?? `${t.character} ${Number(avatar)}`,
   }));
   const responsePeople = (responses: Proposal["responses"]) => responses.map(person => ({
-    key: person.id, name: name(person.name), avatar: portraitsByMember.get(person.id) ?? person.avatar,
+    key: person.id, name: name(person.name), avatar: person.avatar ?? portraitsByMember.get(person.id),
   }));
   const retry = projectRetryRespondents(slots);
   const ranked = rankProjectCandidates(slots, retry).slice(0, 3);
@@ -116,7 +116,7 @@ export function ProjectRecommendations({ slots, board, portraits, language, busy
           </div>
           <ParticipantGroup label={t.no} people={responsePeople(unavailable)} portraits={portraits} />
           <ParticipantGroup label={t.pending} people={[
-            ...slot.waiting.map(person => ({ key: person.id, name: name(person.name), avatar: portraitsByMember.get(person.id) })),
+            ...slot.waiting.map(person => ({ key: person.id, name: name(person.name), avatar: person.avatar ?? portraitsByMember.get(person.id) })),
             ...unlinked,
           ]} portraits={portraits} />
           {onConfirm && slot.canManage && <button type="button" className="project-recommendation-confirm" aria-haspopup="dialog"
