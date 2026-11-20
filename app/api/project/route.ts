@@ -52,8 +52,12 @@ function allowedMember(respondents: string, memberId: string) {
 
 function guestAlias(avatar: ProjectAvatar | null, position: number): ProjectRespondent {
   return avatar
-    ? { id: "character-" + avatar, name: `キャラクター ${Number(avatar)}` }
+    ? { id: "character-" + avatar, name: characterName(avatar) }
     : { id: "participant-" + position, name: `参加者 ${position}` };
+}
+
+function characterName(avatar: ProjectAvatar) {
+  return `キャラクター ${Number(avatar)}`;
 }
 
 function isCandidateWindow(value: unknown): value is CandidateWindow {
@@ -73,11 +77,12 @@ function readCandidateStarts(localTime: unknown, windows: unknown, zone: string,
   return expandCandidateWindows(windows, zone, duration);
 }
 
-function readProfile(avatarValue: unknown, nameValue: unknown, styleValue: unknown): ProfileInput | null {
+function readProfile(avatarValue: unknown, nameValue: unknown, styleValue: unknown, guest = false): ProfileInput | null {
   const avatar = AVATAR_IDS.find(id => id === avatarValue);
   if (!avatar) return null;
   if (styleValue !== undefined && styleValue !== "wide" && styleValue !== "kirie") return null;
   if (avatar === "09" && styleValue === "kirie") return null;
+  if (guest) return validGuestName(nameValue) ? { avatar, avatarStyle: styleValue ?? null, name: trimmed(nameValue) || null } : null;
   const name = customPortrait(avatar) ? trimmed(nameValue) : null;
   if (name !== null && (!name || name.length > MAX_NAME_LENGTH)) return null;
   return { avatar, avatarStyle: styleValue ?? null, name };
@@ -125,24 +130,29 @@ function claimPendingTargets(db: D1Database, memberId: string, avatar: ProjectAv
     `UPDATE project_meeting_respondents SET member_id = ?
      WHERE member_id IS NULL AND avatar = ? AND changes() > 0
        AND NOT EXISTS (
+         SELECT 1 FROM project_proposals proposal JOIN project_members host ON host.id = proposal.proposer_id
+         WHERE proposal.meeting_id = project_meeting_respondents.meeting_id AND host.token GLOB 'guest-*'
+       )
+       AND NOT EXISTS (
          SELECT 1 FROM project_meeting_respondents assigned
          WHERE assigned.meeting_id = project_meeting_respondents.meeting_id AND assigned.member_id = ?
        )`
   ).bind(memberId, avatar, memberId);
 }
 
-function claimGuestSeat(db: D1Database, proposalId: string, memberId: string) {
+function claimOpenSeat(db: D1Database, proposalId: string, memberId: string) {
   return db.prepare(`UPDATE project_meeting_respondents SET member_id = ?
     WHERE (meeting_id, avatar) IN (
       SELECT seat.meeting_id, seat.avatar FROM project_meeting_respondents seat
       WHERE seat.member_id IS NULL
         AND seat.meeting_id = (SELECT meeting_id FROM project_proposals WHERE id = ? AND ${openProposal})
+        AND EXISTS (SELECT 1 FROM project_profiles WHERE id = ?)
         AND NOT EXISTS (
           SELECT 1 FROM project_meeting_respondents assigned
           WHERE assigned.meeting_id = seat.meeting_id AND assigned.member_id = ?
         )
       ORDER BY seat.avatar LIMIT 1
-    )`).bind(memberId, proposalId, memberId);
+    )`).bind(memberId, proposalId, memberId, memberId);
 }
 
 async function joinProjectGuest(db: D1Database, request: Request, profile: ProfileInput) {
@@ -155,7 +165,7 @@ async function joinProjectGuest(db: D1Database, request: Request, profile: Profi
       .bind(id, "guest-" + id, token, Date.now()),
     db.prepare(`INSERT INTO project_profiles (id, avatar, display_name, avatar_style)
       SELECT ?, ?, ?, ? WHERE changes() > 0`)
-      .bind(id, profile.avatar, profile.name ?? `ゲスト ${Number(profile.avatar)}`, profile.avatarStyle ?? "wide"),
+      .bind(id, profile.avatar, profile.name ?? characterName(profile.avatar), profile.avatarStyle ?? "wide"),
     db.prepare("SELECT id FROM project_members WHERE token = ?").bind(token),
   ]);
   const joined = result.results[0];
@@ -165,7 +175,7 @@ async function joinProjectGuest(db: D1Database, request: Request, profile: Profi
   return response;
 }
 
-function saveResponse(db: D1Database, proposalId: string, memberId: string, response: SavedResponse, profile?: ProfileInput, guest = false) {
+function saveResponse(db: D1Database, proposalId: string, memberId: string, response: SavedResponse, profile?: ProfileInput, verifyAudience = false) {
   const avatar = profile?.avatar ?? null;
   const avatarStyle = profile?.avatarStyle ?? null;
   const availability = response.availability === null ? null : JSON.stringify(response.availability);
@@ -188,7 +198,7 @@ function saveResponse(db: D1Database, proposalId: string, memberId: string, resp
      ON CONFLICT (proposal_id, member_id) DO UPDATE SET choice = excluded.choice,
        availability = CASE WHEN excluded.availability IS NULL AND project_responses.choice = excluded.choice
          THEN project_responses.availability ELSE excluded.availability END`
-  ).bind(memberId, response.choice, availability, proposalId, Number(guest), memberId, avatar, memberId, avatar, profile?.name ?? null, avatarStyle, avatarStyle);
+  ).bind(memberId, response.choice, availability, proposalId, Number(verifyAudience), memberId, avatar, memberId, avatar, profile?.name ?? null, avatarStyle, avatarStyle);
 }
 
 function queueCompletion(db: D1Database, proposalId: string, meetingId: string | null) {
@@ -203,6 +213,9 @@ function queueCompletion(db: D1Database, proposalId: string, meetingId: string |
      ), slots AS (
        SELECT * FROM project_proposals
        WHERE (meeting_id = (SELECT id FROM meeting) OR (meeting_id IS NULL AND id = ?)) AND changes() > 0
+         AND NOT EXISTS (
+           SELECT 1 FROM project_members host WHERE host.id = project_proposals.proposer_id AND host.token GLOB 'guest-*'
+         )
      ), expected_responses AS (
        SELECT p.id AS proposal_id, target.member_id
        FROM slots p JOIN project_meeting_respondents target ON target.meeting_id = p.meeting_id
@@ -362,14 +375,16 @@ export async function GET(request: Request) {
     const targetedAvatars = new Map(targets.flatMap(({ avatar, member }) => member ? [[member.id, avatar] as const] : []));
     const closed = closedMeetings.has(meetingId);
     const answered = answeredByMeeting.get(meetingId);
+    const guestHosted = row.proposer_id !== null && guestIds.has(row.proposer_id);
+    const manages = canManage(organizer, member, row.proposer_id);
     const invited = new Set(JSON.parse(row.respondents) as string[]);
     const canRespond = (id: string) => targets.length ? targetedAvatars.has(id)
       : guestIds.has(id) ? row.meeting_id !== null && invited.size === 0 : invited.size === 0 || invited.has(id);
-    const viewerEligible = canRespond(profileId) || (guest && !closed && targets.some(target => !target.member));
-    if (guest && (!viewerEligible || (!targets.length && closed && !answered?.has(profileId)))) return [];
-    // A guest who only picks artwork should not add a required response to every "everyone" meeting.
+    const viewerEligible = canRespond(profileId) || ((guest || guestHosted) && Boolean(profile) && !closed && targets.some(target => !target.member));
+    if (guest && !guestHosted && (!viewerEligible || (!targets.length && closed && !answered?.has(profileId)))) return [];
+    // Public meetings use their own respondents rather than inheriting the private roster.
     const eligible = respondents.filter(person => canRespond(person.id)
-      && (targets.length > 0 || !guestIds.has(person.id) || answered?.has(person.id)));
+      && (targets.length > 0 || (!guestHosted && !guestIds.has(person.id)) || answered?.has(person.id)));
     if (!targets.length && !legacyAudience[meetingId]) {
       const all = invited.size === 0;
       legacyAudience[meetingId] = {
@@ -379,16 +394,22 @@ export async function GET(request: Request) {
     }
     const votes = responsesByProposal.get(row.id);
     const ownResponse = votes?.get(profileId);
-    const manages = !guest && canManage(organizer, member, row.proposer_id);
     const author = profiles.get(row.proposer_id ?? PROJECT_ORGANIZER_ID);
+    const showAuthor = !guest || guestHosted;
+    const proposer = guestHosted && author ? author.display_name ?? characterName(author.avatar)
+      : row.proposer_id ? membersById.get(row.proposer_id)?.name ?? null : author?.display_name ?? null;
+    const showMeetingUrl = manages || (row.confirmed && viewerEligible && (guestHosted ? answered?.has(profileId) : !guest));
+    const alias = (person: ProjectRespondent, index: number) => guest && person.id !== profileId
+      ? guestAlias(targetedAvatars.get(person.id) ?? null, index + 1) : person;
     return [{
       id: row.id, meetingId: row.meeting_id, title: row.title, start: row.start, duration: row.duration,
-      meetingUrl: !guest && (manages || (row.confirmed && viewerEligible)) ? row.meeting_url : null,
+      meetingUrl: showMeetingUrl ? row.meeting_url : null,
       confirmed: Boolean(row.confirmed), meetingClosed: closed,
-      proposerName: guest ? null : row.proposer_id ? membersById.get(row.proposer_id)?.name ?? null : author?.display_name ?? null,
-      proposerAvatar: guest ? null : author?.avatar ?? null,
-      proposerAvatarStyle: guest ? null : author?.avatar_style ?? null,
+      proposerName: showAuthor ? proposer : null,
+      proposerAvatar: showAuthor ? author?.avatar ?? null : null,
+      proposerAvatarStyle: showAuthor ? author?.avatar_style ?? null : null,
       canManage: manages,
+      createdByViewer: row.proposer_id === profileId || (organizer && !member && row.proposer_id === null),
       eligible: viewerEligible,
       totalRespondents: targets.length || eligible.length,
       ownChoice: ownResponse?.choice ?? null,
@@ -400,11 +421,11 @@ export async function GET(request: Request) {
         const targetAvatar = targetedAvatars.get(person.id);
         if (guest && person.id !== profileId) {
           const avatar = targetAvatar ?? responder?.avatar ?? null;
-          return [{ ...guestAlias(targetAvatar ?? null, index + 1), choice: response.choice, avatar, avatarStyle: null, availability: null }];
+          return [{ ...alias(person, index), choice: response.choice, avatar, avatarStyle: null, availability: null }];
         }
         return [{ ...person, ...response, avatar: responder?.avatar ?? targetAvatar ?? null, avatarStyle: responder?.avatar_style ?? null }];
       }),
-      waiting: manages ? eligible.filter(person => !votes?.has(person.id)) : [],
+      waiting: manages ? eligible.flatMap((person, index) => votes?.has(person.id) ? [] : [alias(person, index)]) : [],
     }];
   });
   const visibleMeetingIds = new Set(boardProposals.map(proposal => proposal.meetingId ?? proposal.id));
@@ -459,36 +480,36 @@ export async function POST(request: Request) {
     }
     if (member?.guest) return json({ saved: true });
     if (actor) return fail("forbidden", 403);
-    if (!validGuestName(body.name)) return fail("invalid", 400);
-    const profile = readProfile(body.avatar, body.name, body.avatarStyle);
+    const profile = readProfile(body.avatar, body.name, body.avatarStyle, true);
     if (!profile) return fail("invalid", 400);
     return joinProjectGuest(db, request, profile);
   }
-  if (member?.guest && body.action !== "vote" && body.action !== "profile") return fail("forbidden", 403);
-
   if (body.action === "vote") {
     if (!actor) return fail("inviteRequired", 403);
     if (typeof body.id !== "string" || !uuid.test(body.id) || !projectChoices.includes(body.choice)) return fail("invalid", 400);
     const item = await db.prepare(
       `SELECT respondents, meeting_id, (${openProposal}) AS open,
+        EXISTS (SELECT 1 FROM project_members host WHERE host.id = project_proposals.proposer_id AND host.token GLOB 'guest-*') AS guest_hosted,
         EXISTS (SELECT 1 FROM project_meeting_respondents target WHERE target.meeting_id = project_proposals.meeting_id) AS uses_portraits,
         EXISTS (SELECT 1 FROM project_meeting_respondents target WHERE target.meeting_id = project_proposals.meeting_id AND target.member_id = ?) AS selected
        FROM project_proposals WHERE id = ?`
-    ).bind(actor.id, body.id).first<Pick<ProposalRow, "respondents" | "meeting_id"> & { uses_portraits: number; selected: number; open: number }>();
+    ).bind(actor.id, body.id).first<Pick<ProposalRow, "respondents" | "meeting_id"> & { uses_portraits: number; selected: number; open: number; guest_hosted: number }>();
     if (!item) return fail("missing", 404);
-    if (member?.guest) {
+    const publicVote = member?.guest || (item.guest_hosted && item.uses_portraits);
+    if (publicVote) {
       if (body.avatar !== undefined || body.avatarStyle !== undefined) return fail("forbidden", 403);
       const openAudience = item.meeting_id !== null && (JSON.parse(item.respondents) as string[]).length === 0;
-      if (item.uses_portraits ? !item.selected && !item.open : !openAudience) {
+      if (item.uses_portraits ? !item.selected && !item.open && !item.guest_hosted : !openAudience) {
         return fail("missing", 404);
       }
     } else if (!(item.uses_portraits ? item.selected : allowedMember(item.respondents, actor.id))) return fail("ineligible", 403);
     const availability = body.availability === undefined ? null : readAvailability(body.availability, body.choice);
     if (body.availability !== undefined && availability === null) return fail("invalidAvailability", 400);
     const response: SavedResponse = { choice: body.choice, availability };
-    if (member?.guest) {
+    if (publicVote) {
+      if (actor.id === PROJECT_ORGANIZER_ID) await registerOrganizerVoter(db);
       const [, saved, , status] = await db.batch<{ open: number }>([
-        claimGuestSeat(db, body.id, actor.id),
+        claimOpenSeat(db, body.id, actor.id),
         saveResponse(db, body.id, actor.id, response, undefined, true),
         queueCompletion(db, body.id, item.meeting_id),
         db.prepare(`SELECT (${openProposal}) AS open FROM project_proposals WHERE id = ?`).bind(body.id),
@@ -526,13 +547,12 @@ export async function POST(request: Request) {
 
   if (body.action === "profile") {
     if (!actor) return fail("inviteRequired", 403);
-    if (member?.guest && !validGuestName(body.name)) return fail("invalid", 400);
-    const selectedProfile = readProfile(body.avatar, body.name, body.avatarStyle);
+    const selectedProfile = readProfile(body.avatar, body.name, body.avatarStyle, member?.guest);
     if (!selectedProfile) return fail("invalid", 400);
     if (member?.guest) {
       const result = await db.prepare(`UPDATE project_profiles
         SET avatar = ?, display_name = ?, avatar_style = COALESCE(?, CASE WHEN avatar = ? THEN avatar_style ELSE 'wide' END)
-        WHERE id = ?`).bind(selectedProfile.avatar, selectedProfile.name ?? `ゲスト ${Number(selectedProfile.avatar)}`,
+        WHERE id = ?`).bind(selectedProfile.avatar, selectedProfile.name ?? characterName(selectedProfile.avatar),
         selectedProfile.avatarStyle, selectedProfile.avatar, actor.id).run();
       return result.meta.changes ? json({ saved: true }) : fail("inviteRequired", 403);
     }
@@ -546,7 +566,7 @@ export async function POST(request: Request) {
   if (body.action === "propose") {
     if (!actor) return fail("inviteRequired", 403);
     const { localTime, windows, zone, duration, respondentAvatars = [] } = body;
-    const respondents = body.respondents === undefined && body.respondentAvatars !== undefined ? [] : body.respondents;
+    const respondents = body.respondents === undefined && (member?.guest || body.respondentAvatars !== undefined) ? [] : body.respondents;
     const title = trimmed(body.title);
     if (title.length > 100 || !validZone(zone) ||
         !DURATIONS.includes(duration) || !Array.isArray(respondents) || respondents.some(id => typeof id !== "string" || (id !== PROJECT_ORGANIZER_ID && !uuid.test(id))) ||
@@ -554,12 +574,13 @@ export async function POST(request: Request) {
         (respondents.length > 0 && respondentAvatars.length > 0)) {
       return fail("invalid", 400);
     }
+    if (member?.guest && respondents.length > 0) return fail("forbidden", 403);
     const link = readMeetingUrl(body.meetingUrl);
     if (link.error) return fail(link.error, 400);
     const { starts, error } = readCandidateStarts(localTime, windows, zone, duration);
     if (!starts) return fail(error, 400);
     const avatars = [...new Set<ProjectAvatar>(respondentAvatars)];
-    const meetingId = windows !== undefined || avatars.length > 0 ? crypto.randomUUID() : null;
+    const meetingId = member?.guest || windows !== undefined || avatars.length > 0 ? crypto.randomUUID() : null;
     const ids = [...new Set<string>(respondents)];
     if (ids.length) {
       const existing = await db.prepare("SELECT id FROM project_members").all<{ id: string }>();
@@ -578,9 +599,9 @@ export async function POST(request: Request) {
         db.prepare(
           `INSERT INTO project_meeting_respondents (meeting_id, avatar, member_id)
            SELECT ?, target.value, profile.id FROM json_each(?) target
-           LEFT JOIN project_profiles profile ON profile.avatar = target.value
+           LEFT JOIN project_profiles profile ON ? = 0 AND profile.avatar = target.value
              AND NOT EXISTS (SELECT 1 FROM project_members guest WHERE guest.id = profile.id AND guest.token GLOB 'guest-*')`
-        ).bind(meetingId, JSON.stringify(avatars)),
+        ).bind(meetingId, JSON.stringify(avatars), Number(Boolean(member?.guest))),
       ]);
     } else {
       await insertSlots.run();
