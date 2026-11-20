@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getProjectAvailableAvatars, getProjectMember, isProjectOrganizer } from "@/lib/project-access";
+import { getProjectMember, isProjectOrganizer } from "@/lib/project-access";
 import { kiriePortraits, portraits } from "@/lib/project-portraits";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +11,7 @@ export async function GET(request: Request) {
   const parameters = new URL(request.url).searchParams;
   const style = parameters.get("style");
   if (parameters.get("join") === "1" && style === "kirie") {
-    const available = await getProjectAvailableAvatars(db);
-    return Response.json(Object.fromEntries(available.map(avatar => [avatar, kiriePortraits[avatar]])), { headers });
+    return Response.json(kiriePortraits, { headers });
   }
   const [organizer, member] = await Promise.all([isProjectOrganizer(), getProjectMember(db, request)]);
   if (!organizer && !member) return Response.json({ error: "inviteRequired" }, { status: 403, headers });
