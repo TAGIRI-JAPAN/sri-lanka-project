@@ -53,10 +53,10 @@ export const projectResponses = sqliteTable("project_responses", {
 
 export const projectProfiles = sqliteTable("project_profiles", {
   id: text("id").primaryKey(),
-  avatar: text("avatar").notNull().unique(),
+  avatar: text("avatar").notNull(),
   avatarStyle: text("avatar_style", { enum: ["wide", "kirie"] }).notNull().default("wide"),
   displayName: text("display_name"),
-});
+}, table => [index("project_profiles_avatar_idx").on(table.avatar)]);
 
 export const projectMeetingRespondents = sqliteTable("project_meeting_respondents", {
   meetingId: text("meeting_id").notNull(),
