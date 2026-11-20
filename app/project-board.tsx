@@ -27,7 +27,7 @@ import "./project-proposal-scenes.css";
 const ZONES = [TOKYO, COLOMBO] as const;
 const WIDE_PORTRAITS = new Set<ProjectAvatar>(["01", "04", "05", "06"]);
 type Mode = "reply" | "propose";
-type MeetingFilter = "all" | "mine" | "confirmed";
+type MeetingFilter = "all" | "mine" | "created" | "confirmed";
 type DraftWindow = CandidateWindow & { key: number };
 type PortraitSets = Partial<Record<ProjectAvatarStyle, ProjectPortraits>>;
 type Feedback = { message: Message; error?: boolean };
@@ -39,14 +39,14 @@ const copy = {
   ja: {
     inviteRequired: "ページを開き直してください。", manage: "日程の管理", signIn: "ログイン", loading: "読み込み中…", refresh: "再読み込み",
     unavailable: "読み込みに失敗しました。もう一度お試しください。", saving: "保存中…",
-    choose: "キャラクターを選択", pick: "このキャラクターで回答", portrait: "回答者", name: "表示する名前",
-    chooseHint: "キャラクターを選んで、候補日時に回答できます。", character: "キャラクター",
+    choose: "キャラクターを選択", pick: "このキャラクターで進む", portrait: "キャラクター", name: "表示する名前",
+    chooseHint: "選んだキャラクターで回答したり、打ち合わせを作成したりできます。", character: "キャラクター",
     noGuestAvatars: "いま選べるキャラクターはありません。",
     taken: "使用中", selected: "選択中", unnamed: "名前を入力", portraitFailed: "回答者の画像を読み込めませんでした。",
     avatarTaken: "その画像は別の人が選びました。ほかの画像を選んでください。",
     full: "すべての画像が使用中です。イニシャルで回答できます。", useInitial: "イニシャルで進む",
-    identity: "回答者", change: "キャラクターを変更", cancel: "戻る", organizer: "主催者", profileSaved: "回答者を設定しました。",
-    reply: "候補日時を見る", propose: "候補日時を追加", mode: "操作を選ぶ", candidates: "候補日時",
+    change: "キャラクターを変更", cancel: "戻る", organizer: "主催者", profileSaved: "キャラクターを設定しました。",
+    reply: "候補日時を見る", propose: "打ち合わせを作成", mode: "操作を選ぶ", candidates: "候補日時",
     noProposals: "候補日時がまだありません。", meeting: "打ち合わせ", proposer: "提案者",
     open: "回答受付中", closed: "受付終了", confirmed: "日程が決まりました", finalizedSlot: "確定した日時", complete: "全員回答済み",
     preferred: "最優先", yes: "参加可", maybe: "要相談", no: "参加不可", vote: "出欠を入力", editVote: "回答を変更",
@@ -58,8 +58,8 @@ const copy = {
     savedEdit: "日程提案を更新しました。", deletedMeeting: "打ち合わせを削除しました。", saveEdit: "変更を保存",
     resetDraft: "入力をリセット", resetCandidateTimes: "候補日時を入れ直す", restoreEdit: "編集前に戻す", cancelEdit: "キャンセル",
     editHint: "変更した候補枠の回答は消去されます。", editReopens: "確定した日時を変更すると、回答受付を再開します。",
-    meetingList: "打ち合わせ一覧", allMeetings: "すべて", myMeetings: "自分宛", confirmedMeetings: "確定済み",
-    noMyMeetings: "あなた宛の打ち合わせはまだありません。", noConfirmedMeetings: "確定済みの打ち合わせはまだありません。",
+    meetingList: "打ち合わせ一覧", allMeetings: "すべて", myMeetings: "自分宛", createdMeetings: "作成した", confirmedMeetings: "確定済み",
+    noMyMeetings: "あなた宛の打ち合わせはまだありません。", noCreatedMeetings: "作成した打ち合わせはまだありません。", noConfirmedMeetings: "確定済みの打ち合わせはまだありません。",
     unansweredOnly: "未回答だけ見る", nextUnanswered: "次の未回答へ", allCandidates: "全候補を見る",
     joinUrl: "オンライン会議リンク（任意）", joinUrlHint: "確定後、回答対象者に表示されます。",
     invalidMeetingUrl: "https:// で始まる有効な会議リンクを入力してください。",
@@ -79,14 +79,14 @@ const copy = {
   en: {
     inviteRequired: "Please reopen this page.", manage: "Manage schedules", signIn: "Sign in", loading: "Loading…", refresh: "Reload",
     unavailable: "Unable to load. Please try again.", saving: "Saving…",
-    choose: "Choose a character", pick: "Respond with this character", portrait: "Respondent", name: "Display name",
-    chooseHint: "Choose a character to respond to proposed times.", character: "Character",
+    choose: "Choose a character", pick: "Continue as this character", portrait: "Character", name: "Display name",
+    chooseHint: "Choose a character to respond to times and create meetings.", character: "Character",
     noGuestAvatars: "No characters are available to select right now.",
     taken: "In use", selected: "Selected", unnamed: "Enter a name", portraitFailed: "The portraits could not load.",
     avatarTaken: "Someone else chose that portrait. Please choose another one.",
     full: "All portraits are in use. You can respond with your initials.", useInitial: "Continue with initials",
-    identity: "Responding as", change: "Change character", cancel: "Go back", organizer: "Organizer", profileSaved: "Respondent saved.",
-    reply: "View proposed times", propose: "Add a proposed time", mode: "Choose an action", candidates: "Proposed times",
+    change: "Change character", cancel: "Go back", organizer: "Organizer", profileSaved: "Character saved.",
+    reply: "View proposed times", propose: "Create a meeting", mode: "Choose an action", candidates: "Proposed times",
     noProposals: "No times have been proposed yet.", meeting: "Meeting", proposer: "Proposed by",
     open: "Accepting responses", closed: "Responses closed", confirmed: "Time confirmed", finalizedSlot: "Confirmed time", complete: "Everyone has responded",
     preferred: "Preferred", yes: "Available", maybe: "Maybe", no: "Unavailable", vote: "Add availability", editVote: "Edit response",
@@ -98,8 +98,8 @@ const copy = {
     savedEdit: "The proposal was updated.", deletedMeeting: "The meeting was deleted.", saveEdit: "Save changes",
     resetDraft: "Reset form", resetCandidateTimes: "Start over with new times", restoreEdit: "Restore saved entries", cancelEdit: "Cancel",
     editHint: "Responses for changed time slots will be removed.", editReopens: "Changing the confirmed time will reopen responses.",
-    meetingList: "Meetings", allMeetings: "All", myMeetings: "For me", confirmedMeetings: "Confirmed",
-    noMyMeetings: "You have no meetings to respond to yet.", noConfirmedMeetings: "No meetings have been confirmed yet.",
+    meetingList: "Meetings", allMeetings: "All", myMeetings: "For me", createdMeetings: "Created", confirmedMeetings: "Confirmed",
+    noMyMeetings: "You have no meetings to respond to yet.", noCreatedMeetings: "You haven't created any meetings yet.", noConfirmedMeetings: "No meetings have been confirmed yet.",
     unansweredOnly: "Show unanswered only", nextUnanswered: "Go to next unanswered", allCandidates: "Show all times",
     joinUrl: "Online meeting link (optional)", joinUrlHint: "Shared with the requested respondents after confirmation.",
     invalidMeetingUrl: "Enter a valid meeting link beginning with https://.",
@@ -121,7 +121,14 @@ const copy = {
 type Message = keyof typeof copy.ja;
 
 function localName(name: string, language: Language) {
-  return name === PROJECT_ORGANIZER_NAME ? copy[language].organizer : name;
+  if (name === PROJECT_ORGANIZER_NAME) return copy[language].organizer;
+  const character = /^(?:キャラクター|Character) ([1-9])$/.exec(name);
+  return character ? `${copy[language].character} ${character[1]}` : name;
+}
+
+function savedGuestName(profile: NonNullable<Board["profile"]>) {
+  const name = profile.displayName ?? "";
+  return localName(name, "ja") === `キャラクター ${Number(profile.avatar)}` ? "" : name;
 }
 
 function placeName(zone: string, language: Language) {
@@ -237,7 +244,8 @@ function ProposalSlot({ item, board, sets, language, primary, grouped = true, pe
     {item.confirmed && <p className="meeting-final"><img src="/project/art/u04.webp" alt="" width={20} height={20} /><Ink text={t.finalizedSlot} /></p>}
     <ProjectTimes start={item.start} duration={item.duration} language={language} primary={primary} grouped={grouped} />
     {showResponse && <div className="meeting-responses">
-      {canVote && <div className="meeting-votes" role="group" aria-label={t.vote}>
+      {canVote && item.ownChoice && <p className="meeting-response-edit-label"><Ink text={t.editVote} /></p>}
+      {canVote && <div className="meeting-votes" role="group" aria-label={item.ownChoice ? t.editVote : t.vote}>
         {projectChoices.map(choice => <button type="button" className="meeting-vote" key={choice} data-choice={choice}
           aria-pressed={ownChoice === choice} aria-label={projectMarks[choice] + " " + t[choice]}
           disabled={Boolean(pending) || busy} onClick={() => onVote(choice)}>
@@ -357,9 +365,9 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
       </div>
       <div className="meeting-heading-side">
         <div className="meeting-heading-people">
-          {!board.guest && <div className="meeting-proposer">
+          {(!board.guest || meeting.proposerAvatar || meeting.proposerName) && <div className="meeting-proposer">
             <span><Ink text={t.proposer} /></span>
-            <Avatar src={photo(sets, meeting.proposerAvatar)} name={proposer} showName={Boolean(meeting.proposerAvatar && customPortrait(meeting.proposerAvatar))} />
+            <Avatar src={photo(sets, meeting.proposerAvatar)} name={proposer} showName={Boolean(board.guest || (meeting.proposerAvatar && customPortrait(meeting.proposerAvatar)))} />
           </div>}
           <div className="meeting-heading-audience">
             <span><Ink text={t.audience} /></span>
@@ -477,6 +485,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const activePortraits = sets.kirie;
   const selectedTaken = Boolean(chosen && !guestPicker && board?.takenAvatars.includes(chosen));
   const requiresName = Boolean(chosen && !guestPicker && customPortrait(chosen));
+  const guestNameLabel = t.name + " (" + t.optional + ")";
   const readyWindows = windows.filter(window => window.date && window.from);
   const preview = readyWindows.length ? expandCandidateWindows(readyWindows, zone, duration) : undefined;
   const meetings = new Map<string, Proposal[]>();
@@ -491,7 +500,14 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const meetingLists = {
     all: orderedMeetings,
     mine: orderedMeetings.filter(([, slots]) => slots.some(slot => slot.eligible)),
+    created: orderedMeetings.filter(([, slots]) => slots[0].createdByViewer),
     confirmed: orderedMeetings.filter(([, slots]) => slots.some(slot => slot.confirmed)),
+  };
+  const meetingFilterLabels = {
+    all: t.allMeetings, mine: t.myMeetings, created: t.createdMeetings, confirmed: t.confirmedMeetings,
+  };
+  const emptyMeetingFilter = {
+    all: t.noProposals, mine: t.noMyMeetings, created: t.noCreatedMeetings, confirmed: t.noConfirmedMeetings,
   };
   const displayedMeetings = meetingLists[meetingFilter];
   const selectedMeeting = displayedMeetings.find(([id]) => id === activeMeetingId) ?? displayedMeetings[0];
@@ -554,6 +570,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
       const current = await refresh();
       if (session === authRevision.current && current.guest && current.profile) {
         setChosen(current.profile.avatar);
+        setDisplayName(savedGuestName(current.profile));
         setEditingRespondent(true);
       }
     } catch (error) {
@@ -708,6 +725,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     if (editing && next === "reply") endEdit();
     setMode(next);
     setFeedback(undefined);
+    requestAnimationFrame(() => content.current?.focus({ preventScroll: next === "reply" }));
   }
 
   function selectMeeting(id: string) {
@@ -787,7 +805,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   function editRespondent() {
     if (profile) {
       setChosen(profile.avatar);
-      setDisplayName(profile.displayName ?? ownName);
+      setDisplayName(board?.guest ? savedGuestName(profile) : profile.displayName ?? ownName);
     }
     setEditingRespondent(true);
     setFeedback(undefined);
@@ -797,11 +815,13 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     event.preventDefault();
     if (!chosen || selectedTaken || (requiresName && !displayName.trim())) return;
     const avatarStyle = chosen === "09" ? "wide" : "kirie";
-    const name = guestPicker ? `${t.character} ${Number(chosen)}` : displayName;
+    const name = displayName.trim();
     if (publicChooser) {
       const session = authRevision.current;
       const result = await perform({ action: "join", avatar: chosen, avatarStyle, name }, "profileSaved");
-      if (!result && session === authRevision.current) {
+      if (result) {
+        requestAnimationFrame(() => content.current?.focus({ preventScroll: true }));
+      } else if (session === authRevision.current) {
         const available = await boardRequest<GuestEntry>("", undefined, "/api/project?join=1").catch(() => null);
         if (session === authRevision.current && available) setGuestEntry(available);
       }
@@ -911,7 +931,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                   aria-label={t.character + " " + Number(id) + (detail ? " · " + detail : "")} aria-pressed={selected} data-portrait-id={id}
                   onClick={() => {
                     setChosen(id);
-                    setDisplayName(old => old || ownName);
+                    if (!guestPicker) setDisplayName(old => old || ownName);
                     setFeedback(undefined);
                   }}>
                   <img className="project-portrait-photo" src={portrait} alt="" width={400} height={400} />
@@ -928,8 +948,8 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                 <div aria-live="polite"><strong><Ink text={chosen && !selectedTaken ? (guestPicker ? t.character + " " + Number(chosen) : requiresName ? displayName.trim() || t.unnamed : ownName) : (language === "ja" ? "未選択" : "Select a portrait")} /></strong>
                 </div>
               </div>
-              {requiresName && !selectedTaken && <Field label={<Ink text={t.name} />}>
-                <input value={displayName} required maxLength={MAX_NAME_LENGTH} onChange={event => setDisplayName(event.target.value)} />
+              {chosen && (guestPicker || requiresName) && !selectedTaken && <Field label={<Ink text={guestPicker ? guestNameLabel : t.name} />}>
+                <input value={displayName} required={requiresName} autoComplete="nickname" maxLength={MAX_NAME_LENGTH} onChange={event => setDisplayName(event.target.value)} />
               </Field>}
               {allTaken && <p className="project-muted"><Ink text={t.full} /></p>}
               {!dialog && status}
@@ -956,7 +976,6 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
             casting.current?.scrollIntoView({ block: "start" });
           }} />
           <IslandGuide language={language} />
-          <a href="/?manage=1" className="project-manage-link">{t.manage}</a>
         </>}
       </> : board ? <>
           <div className="island-board-clocks"><ProjectClocks language={language} /></div>
@@ -973,24 +992,24 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
               <AudienceIcons board={board} sets={sets} language={language} limit={4}
                 meeting={mode === "propose" ? editing?.item : audienceSlot} draft={respondentAvatars} />
             </div>}
-            {!board.guest && <nav className="project-mode" aria-label={t.mode}>
+            <nav className="project-mode" aria-label={t.mode}>
               {(["reply", "propose"] as const).map(action => <button key={action} type="button" data-mode={action}
                 disabled={busy} aria-pressed={mode === action} onClick={() => switchMode(action)}>
                 <strong className="project-mode-label"><Ink text={action === "propose" ? t.propose : t.reply} /></strong>
               </button>)}
-            </nav>}
+            </nav>
           </div>
           {!dialog && status}
           {mode === "reply" && <section className="project-list" ref={content} tabIndex={-1} aria-labelledby="project-candidates">
             <div className="island-list-head"><h2 id="project-candidates"><Ink text={t.meetingList} /></h2></div>
             {orderedMeetings.length === 0 ? <div className="project-empty"><p><Ink text={t.noProposals} /></p>
-              {!board.guest && <button className="project-primary" type="button" onClick={() => switchMode("propose")}><Ink text={t.propose} /></button>}
+              <button className="project-primary" type="button" onClick={() => switchMode("propose")}><Ink text={t.propose} /></button>
             </div> : <div className="meeting-workbench">
               <nav id="project-meeting-picker" className="meeting-picker" aria-label={t.meetingList} tabIndex={-1}>
                 <div className="island-list-filter" role="group" aria-label={language === "ja" ? "打ち合わせの表示" : "Meetings to display"}>
-                  {(["all", "mine", "confirmed"] as const).map(filter => <button key={filter} type="button" aria-pressed={meetingFilter === filter}
+                  {(["all", "mine", "created", "confirmed"] as const).map(filter => <button key={filter} type="button" aria-pressed={meetingFilter === filter}
                     onClick={() => setMeetingFilter(filter)}>
-                    {filter === "all" ? t.allMeetings : filter === "mine" ? t.myMeetings : t.confirmedMeetings} <b>{meetingLists[filter].length}</b>
+                    {meetingFilterLabels[filter]} <b>{meetingLists[filter].length}</b>
                   </button>)}
                 </div>
                 {displayedMeetings.length > 0 && <ul className="meeting-index">
@@ -1023,7 +1042,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                 <MeetingCard key={selectedMeeting[0]} slots={selectedMeeting[1]} board={board} sets={sets}
                   language={language} pending={pending} feedback={voteFeedback} busy={busy} revealed={revealed}
                   onVote={(slot, choice) => { void vote(slot, choice); }} onConfirm={openConfirm} onEdit={editMeeting} onDelete={openDelete} />
-              </div> : <div className="meeting-index-empty"><p>{meetingFilter === "confirmed" ? t.noConfirmedMeetings : t.noMyMeetings}</p>
+              </div> : <div className="meeting-index-empty"><p>{emptyMeetingFilter[meetingFilter]}</p>
                 <button type="button" className="project-secondary" onClick={() => setMeetingFilter("all")}>{t.allMeetings}</button>
               </div>}
             </div>}
