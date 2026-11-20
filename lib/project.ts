@@ -93,7 +93,7 @@ export type Proposal = {
     avatarStyle: ProjectAvatarStyle | null;
     availability: AvailabilityWindow[] | null;
   })[];
-  waiting: ProjectRespondent[];
+  waiting: (ProjectRespondent & { avatar?: ProjectAvatar | null })[];
 };
 
 export function projectRetryRespondents(slots: readonly Proposal[]) {
