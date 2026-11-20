@@ -1,7 +1,9 @@
 import { env } from "cloudflare:workers";
 import { getProjectMember, isProjectOrganizer, newProjectGuestToken,
-  openProjectProposal as openProposal, projectGuestCookie, projectGuestTokenPrefix, readProjectGuestToken } from "@/lib/project-access";
+  openProjectProposal as openProposal, projectGuestCookie, projectGuestTokenPrefix, readProjectGuestToken,
+  type ProjectAccessMember } from "@/lib/project-access";
 import { AVATAR_IDS, customPortrait, expandCandidateWindows, MAX_PROJECT_SLOTS, PROJECT_COMPLETION_EMAIL, PROJECT_ORGANIZER_ID, PROJECT_ORGANIZER_NAME, projectCharacterName, projectChoices, type AvailabilityWindow, type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard, type ProjectChoice, type ProjectMember, type ProjectRespondent, type ProjectTargetRespondent, type Proposal } from "@/lib/project";
+import { repairProjectGuestSeats } from "@/lib/project-seat-repair";
 import { DURATIONS, MAX_NAME_LENGTH, parseWall, uuid, validZone } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
@@ -156,15 +158,15 @@ function claimOpenSeat(db: D1Database, proposalId: string, memberId: string) {
   return db.prepare(`UPDATE project_meeting_respondents SET member_id = ?
     WHERE (meeting_id, avatar) IN (
       SELECT seat.meeting_id, seat.avatar FROM project_meeting_respondents seat
+      JOIN project_profiles profile ON profile.id = ?
       WHERE seat.member_id IS NULL
         AND seat.meeting_id = (SELECT meeting_id FROM project_proposals WHERE id = ? AND ${openProposal})
-        AND EXISTS (SELECT 1 FROM project_profiles WHERE id = ?)
         AND NOT EXISTS (
           SELECT 1 FROM project_meeting_respondents assigned
           WHERE assigned.meeting_id = seat.meeting_id AND assigned.member_id = ?
         )
-      ORDER BY seat.avatar LIMIT 1
-    )`).bind(memberId, proposalId, memberId, memberId);
+      ORDER BY seat.avatar = profile.avatar DESC, seat.avatar LIMIT 1
+    )`).bind(memberId, memberId, proposalId, memberId);
 }
 
 async function joinProjectGuest(db: D1Database, request: Request, profile: ProfileInput) {
@@ -373,6 +375,33 @@ async function deleteMeeting(db: D1Database, id: string, meetingId: string | nul
   return result.meta.changes ? json({ id, meetingId }) : fail("missing", 404);
 }
 
+function repairableMeetings(
+  proposals: ProposalRow[], replies: ResponseRow[], targets: TargetRow[],
+  profiles: Map<string, ProfileRow>, guestIds: Set<string>, organizer: boolean, member: ProjectRespondent | null,
+) {
+  const vacant = new Set(targets.filter(row => !row.member_id).map(row => `${row.meeting_id}/${row.avatar}`));
+  if (!vacant.size) return [];
+
+  const manageable = new Map<string, string>();
+  const closed = new Set(proposals.filter(row => row.confirmed).map(row => row.meeting_id));
+  for (const row of proposals) {
+    if (row.meeting_id && !closed.has(row.meeting_id) && canManage(organizer, member, row.proposer_id)) {
+      manageable.set(row.id, row.meeting_id);
+    }
+  }
+  const voters = new Set(replies.flatMap(row => {
+    const meetingId = manageable.get(row.proposal_id);
+    return meetingId && guestIds.has(row.member_id) ? [`${meetingId}/${row.member_id}`] : [];
+  }));
+  const affected = new Set<string>();
+  for (const { meeting_id, member_id, avatar } of targets) {
+    if (!member_id || !voters.has(`${meeting_id}/${member_id}`)) continue;
+    const actual = profiles.get(member_id)?.avatar;
+    if (actual && avatar < actual && vacant.has(`${meeting_id}/${actual}`)) affected.add(meeting_id);
+  }
+  return [...affected];
+}
+
 export async function GET(request: Request) {
   const db = env.DB;
   if (!db) return fail("unavailable", 503);
@@ -384,18 +413,35 @@ export async function GET(request: Request) {
   const [organizer, access] = await Promise.all([isProjectOrganizer(), getProjectMember(db, request)]);
   const member = organizer && access?.guest ? null : access;
   if (!organizer && !member) return fail("inviteRequired", 403);
+  return readProjectBoard(db, organizer, member, true);
+}
+
+async function readProjectBoard(db: D1Database, organizer: boolean, member: ProjectAccessMember | null, repairSeats: boolean) {
   const guest = Boolean(member?.guest);
 
-  const [proposals, replies, memberList, profileList, targetList] = await db.batch<ProposalRow | ResponseRow | ProjectMember | ProfileRow | TargetRow>([
+  const reads = [
     db.prepare("SELECT id, meeting_id, meeting_url, title, proposer_id, start, duration, respondents, confirmed FROM project_proposals ORDER BY start, id"),
     db.prepare("SELECT proposal_id, member_id, choice, availability FROM project_responses"),
     db.prepare("SELECT id, name, token FROM project_members WHERE id <> ? ORDER BY created, name").bind(PROJECT_ORGANIZER_ID),
     db.prepare("SELECT id, avatar, avatar_style, display_name FROM project_profiles"),
     db.prepare("SELECT meeting_id, avatar, member_id FROM project_meeting_respondents ORDER BY avatar"),
-  ]);
+  ];
+  const [proposals, replies, memberList, profileList, targetList] =
+    await db.batch<ProposalRow | ResponseRow | ProjectMember | ProfileRow | TargetRow>(reads);
   const members = (memberList.results ?? []) as ProjectMember[];
   const guestIds = new Set(members.filter(person => person.token.startsWith(projectGuestTokenPrefix)).map(person => person.id));
   const profiles = new Map((profileList.results as ProfileRow[]).map(profile => [profile.id, profile]));
+  if (repairSeats) {
+    const affected = repairableMeetings(
+      proposals.results as ProposalRow[], replies.results as ResponseRow[], targetList.results as TargetRow[],
+      profiles, guestIds, organizer, member,
+    );
+    if (affected.length) {
+      // Reload after a repair so proposals, responses and seat assignments share one snapshot.
+      const repaired = await repairProjectGuestSeats(db, affected).run();
+      if (repaired.meta.changes) return readProjectBoard(db, organizer, member, false);
+    }
+  }
   const respondents = [...members, organizerRespondent].map(({ id, name }) => {
     const profile = profiles.get(id);
     return { id, name: profile && guestIds.has(id) ? guestDisplayName(profile) : profile?.display_name ?? name };
@@ -467,8 +513,18 @@ export async function GET(request: Request) {
     const proposer = guestHosted && author ? guestDisplayName(author)
       : row.proposer_id ? membersById.get(row.proposer_id)?.name ?? null : author?.display_name ?? null;
     const showMeetingUrl = manages || (row.confirmed && viewerEligible && (guestHosted ? answered?.has(profileId) : !guest));
-    const alias = (person: ProjectRespondent, index: number) => guest && person.id !== profileId
-      ? guestAlias(targetedAvatars.get(person.id) ?? null, index + 1) : person;
+    function visibleParticipant(person: ProjectRespondent, index: number) {
+      const avatar = profiles.get(person.id)?.avatar ?? null;
+      const targetAvatar = targetedAvatars.get(person.id) ?? null;
+      if (!guest || person.id === profileId) return { ...person, avatar: avatar ?? targetAvatar };
+      if (guestHosted && guestIds.has(person.id)) {
+        // Keep a respondent's public identity across slots even when the
+        // historical seat was claimed using another portrait.
+        const alias = guestAlias(null, index + 1);
+        return { ...alias, name: avatar ? characterName(avatar) : alias.name, avatar };
+      }
+      return { ...guestAlias(targetAvatar, index + 1), avatar: targetAvatar ?? avatar };
+    }
     return [{
       id: row.id, meetingId: row.meeting_id, title: row.title, start: row.start, duration: row.duration,
       meetingUrl: showMeetingUrl ? row.meeting_url : null,
@@ -485,21 +541,14 @@ export async function GET(request: Request) {
       responses: eligible.flatMap((person, index) => {
         const response = votes?.get(person.id);
         if (!response) return [];
+        const participant = visibleParticipant(person, index);
         const responder = profiles.get(person.id);
-        const targetAvatar = targetedAvatars.get(person.id);
         if (guest && person.id !== profileId) {
-          if (guestHosted && guestIds.has(person.id)) {
-            const avatar = responder?.avatar ?? null;
-            const participant = guestAlias(null, index + 1);
-            return [{ ...participant, name: avatar ? characterName(avatar) : participant.name, choice: response.choice,
-              avatar, avatarStyle: null, availability: null }];
-          }
-          const avatar = targetAvatar ?? responder?.avatar ?? null;
-          return [{ ...alias(person, index), choice: response.choice, avatar, avatarStyle: null, availability: null }];
+          return [{ ...participant, choice: response.choice, avatarStyle: null, availability: null }];
         }
-        return [{ ...person, ...response, avatar: responder?.avatar ?? targetAvatar ?? null, avatarStyle: responder?.avatar_style ?? null }];
+        return [{ ...participant, ...response, avatarStyle: responder?.avatar_style ?? null }];
       }),
-      waiting: manages ? eligible.flatMap((person, index) => votes?.has(person.id) ? [] : [alias(person, index)]) : [],
+      waiting: manages ? eligible.flatMap((person, index) => votes?.has(person.id) ? [] : [visibleParticipant(person, index)]) : [],
     }];
   });
   const visibleMeetingIds = new Set(boardProposals.map(proposal => proposal.meetingId ?? proposal.id));
