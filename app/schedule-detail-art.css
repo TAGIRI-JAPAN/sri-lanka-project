@@ -1,0 +1,85 @@
+/* The supplied frame becomes visible when a portrait is selected. */
+.schedule-renewal [data-portrait-id] {
+  --selection-art: url("/project/art/f01.webp");
+}
+.schedule-renewal :is([data-portrait-id="02"], [data-portrait-id="06"]) {
+  --selection-art: url("/project/art/f02.webp");
+}
+.schedule-renewal :is([data-portrait-id="03"], [data-portrait-id="07"]) {
+  --selection-art: url("/project/art/f03.webp");
+}
+.schedule-renewal :is([data-portrait-id="04"], [data-portrait-id="08"]) {
+  --selection-art: url("/project/art/f04.webp");
+}
+.schedule-renewal .project-portrait[aria-pressed="true"]::before,
+.schedule-renewal .proposal-face[aria-pressed="true"] .proposal-face-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--selection-art) center / 100% 100% no-repeat;
+  border-image: none;
+  pointer-events: none;
+}
+.schedule-renewal .proposal-face[aria-pressed="true"] .proposal-check,
+.schedule-renewal .proposal-face[aria-pressed="true"] .proposal-face-name {
+  z-index: 2;
+}
+.schedule-renewal .project-portrait[data-taken] .project-portrait-photo {
+  filter: grayscale(1) brightness(.72);
+}
+
+/* Shallow corner motifs preserve the legibility of the times and dates. */
+.schedule-renewal .agenda-time,
+.schedule-renewal .proposal-zone-headings > div {
+  position: relative;
+  isolation: isolate;
+}
+.schedule-renewal .agenda-time::after,
+.schedule-renewal .proposal-zone-headings > div::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: auto 0 0 auto;
+  width: clamp(34px, 5vw, 64px);
+  height: clamp(28px, 4vw, 48px);
+  background: url("/project/art/p05.webp") right bottom / contain no-repeat;
+  opacity: .14;
+  pointer-events: none;
+}
+.schedule-renewal .agenda-time[data-zone="lk"]::after,
+.schedule-renewal .proposal-zone-headings > div:last-child::after {
+  background-image: url("/project/art/p02.webp");
+  opacity: .19;
+}
+
+/* The illustration occupies its own space before candidate times exist. */
+.schedule-renewal .proposal-review .proposal-preview-empty {
+  min-height: 72px;
+  padding: 14px 0 14px 60px;
+  background: url("/project/art/u01.webp") left 6px center / 43px no-repeat;
+}
+.schedule-renewal .project-empty::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(90deg, #121f31 0%, #121f31 45%, #121f3126 100%),
+    url("/project/art/m01.webp") right 54% / min(54%, 540px) auto no-repeat;
+  pointer-events: none;
+}
+.schedule-renewal .project-empty p {
+  color: #fff1d8;
+}
+.schedule-renewal .agenda-receipt > span {
+  padding-inline-start: 29px;
+  color: #202d43;
+  background: #fff3d7 url("/project/art/u04.webp") 5px center / 20px no-repeat;
+}
+
+@media (max-width: 500px) {
+  .schedule-renewal .project-empty::after {
+    background: linear-gradient(90deg, #121f31 0%, #121f31eb 55%, #121f3144 100%),
+      url("/project/art/m01.webp") right 54% / 62% auto no-repeat;
+  }
+}

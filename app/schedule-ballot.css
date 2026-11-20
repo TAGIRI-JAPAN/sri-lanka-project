@@ -1,0 +1,264 @@
+/* Keep meeting details and answers on indigo; the two local timelines read as one light ticket. */
+.island-edition .agenda-meeting {
+  --agenda-ink: #f5e8cd;
+  --agenda-soft: #bdc7d8;
+  --agenda-line: #b99c6245;
+  --agenda-gutter: clamp(14px, 2.5vw, 30px);
+  color: var(--agenda-ink);
+  background: #101827;
+  border: 1px solid #b99c6277;
+  border-radius: 10px;
+  box-shadow: 0 15px 34px #060d1926;
+}
+
+.island-edition .agenda-cover {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 29%);
+  min-height: 122px;
+  color: #fff0d4;
+  background: #182438;
+  border-bottom: 1px solid var(--agenda-line);
+}
+.island-edition .agenda-cover-copy {
+  align-content: center;
+  gap: 8px;
+  padding: 18px var(--agenda-gutter);
+}
+.island-edition .agenda-cover h3 {
+  font-size: clamp(1.32rem, 3vw, 2.3rem);
+  line-height: 1.31;
+}
+.agenda-cover-details {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 15px;
+}
+.island-edition .agenda-proposer { color: #d5dcec; gap: 6px; }
+.island-edition .agenda-proposer .project-voter-name { color: #f0e5cf; }
+.island-edition .agenda-status { display: inline-flex; gap: 6px; color: #e2c286; }
+.island-edition .agenda-status::before {
+  content: "";
+  inline-size: 5px;
+  block-size: 5px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+.island-edition .agenda-status[data-state=complete] { color: #9dddc2; }
+.island-edition .agenda-status[data-state=closed] { color: #b8c1ce; }
+.island-edition .agenda-cover-art,
+.island-edition .agenda-cover-art:has(.agenda-reply-portrait) {
+  min-height: 0;
+  border: 0;
+  background: #182438;
+}
+.island-edition .agenda-cover-art::after {
+  content: "";
+  background: linear-gradient(90deg, #182438, #18243836 31%, transparent 65%);
+}
+.island-edition .agenda-reply-portrait { object-position: center 42%; }
+.island-edition .agenda-receipt > span {
+  color: #f8e9cb;
+  background: #162538eb;
+  border: 1px solid #dcba7d;
+  border-radius: 3px;
+  font-size: .83rem;
+  padding: 4px 7px;
+}
+
+.island-edition .agenda-roster {
+  justify-content: space-between;
+  background: #131f31;
+  color: var(--agenda-soft);
+  padding: 9px var(--agenda-gutter);
+  gap: 8px 16px;
+}
+.island-edition .agenda-team-progress b { color: #f1d291; }
+.island-edition .agenda-people { gap: 7px 12px; }
+.island-edition .agenda-people ul { gap: 5px; }
+.island-edition .agenda-people li[data-awaiting] .project-voter img {
+  opacity: .68;
+  border-style: dashed;
+  border-color: #d4be92;
+}
+.island-edition .agenda-meeting .project-voter :is(img,.project-voter-initial) {
+  background: #263651;
+  border-color: #bda77466;
+}
+.island-edition .agenda-meeting .project-voter[data-own] :is(img,.project-voter-initial) {
+  outline-color: #d6b778;
+}
+.island-edition .agenda-meeting .project-voter-name { line-height: 1.2; }
+
+.island-edition .agenda-toolbar {
+  padding: 12px var(--agenda-gutter);
+  align-items: center;
+  gap: 10px 16px;
+}
+.island-edition .agenda-progress > div { display: flex; gap: 10px; }
+.island-edition .agenda-progress > div > span:first-child { color: var(--agenda-ink); }
+.island-edition .agenda-progress > div > span:last-child { color: #e6c78e; }
+.island-edition .agenda-progress progress,
+.island-edition .agenda-progress progress::-webkit-progress-bar { background: #344155; }
+.island-edition .agenda-progress progress::-webkit-progress-value { background: #dfb66e; }
+.island-edition .agenda-progress progress::-moz-progress-bar { background: #dfb66e; }
+.island-edition .agenda-view { color: var(--agenda-soft); flex-direction: row; }
+.island-edition .agenda-view > div {
+  border: 1px solid #b99c6277;
+  border-radius: 5px;
+  padding: 2px;
+  background: #0d1626;
+}
+.island-edition .agenda-view button {
+  min-height: 38px;
+  background: transparent;
+  color: #dce4f2;
+  padding-inline: 9px;
+}
+.island-edition .agenda-view button[aria-pressed=true] { background: #e9cea0; color: #2c241c; }
+.island-edition .agenda-view button[aria-pressed=false]:hover { background: #202e43; }
+
+.island-edition .agenda-date h4 {
+  gap: 9px;
+  padding: 7px var(--agenda-gutter);
+  color: #f1d49b;
+  background: #1a263a;
+  border-color: var(--agenda-line);
+  font-size: clamp(1rem, 1.75vw, 1.17rem);
+}
+.island-edition .agenda-date h4 > span {
+  color: #c0cadd;
+  margin-inline-start: auto;
+  font-size: .82rem;
+}
+.island-edition .agenda-date h4 time span {
+  margin-inline-start: 0;
+  color: inherit;
+  font-size: inherit;
+}
+.island-edition .agenda-slot,
+.island-edition .agenda-slot:has(.agenda-ballot) {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 10px var(--agenda-gutter);
+  gap: 9px 19px;
+}
+.island-edition .agenda-slot[data-finalized] {
+  background: #152334;
+  box-shadow: inset 3px 0 #a1cfb7;
+}
+.island-edition .agenda-final {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #afe5c8;
+}
+.island-edition .agenda-times {
+  min-width: 0;
+  gap: 0;
+  background: #fcf2df;
+  color: #202d43;
+  border: 1px solid #d3b287;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.island-edition .agenda-time {
+  gap: 4px;
+  padding: 8px clamp(7px, 1.35vw, 16px);
+}
+.island-edition .agenda-time[data-zone=jp] { --zone-ink: #70402a; }
+.island-edition .agenda-time[data-zone=lk] { --zone-ink: #295d57; background-color: #f0edd8; }
+.island-edition .agenda-time + .agenda-time { border-inline-start: 1px dashed #bca67c; }
+.island-edition .agenda-zone { font-size: clamp(.8rem, 1.7vw, .95rem); color: var(--zone-ink); }
+.island-edition .agenda-zone::before { background: var(--zone-ink); height: .69em; }
+.island-edition .agenda-hours {
+  font-size: clamp(1.02rem, 2.28vw, 1.65rem);
+  line-height: 1.13;
+  gap: clamp(2px, .34vw, 5px);
+  letter-spacing: -.03em;
+}
+.island-edition .agenda-hours > span {
+  color: #65584c;
+  font: inherit;
+}
+.island-edition .agenda-hours > time:last-child { font-size: .84em; }
+.island-edition .agenda-time small { font-size: .76rem; line-height: 1.26; color: #555348; }
+.island-edition .project-confirm .agenda-times { padding: 0; }
+
+.agenda-slot-response {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.island-edition .agenda-ballot {
+  gap: 0;
+  margin: 0;
+  border-radius: 5px;
+  border: 1px solid #687385;
+  background: #162033;
+}
+.island-edition .agenda-meeting [data-choice=yes] {
+  --agenda-answer: #a6dfc6;
+  --agenda-answer-soft: #244b43;
+}
+.island-edition .agenda-meeting [data-choice=maybe] {
+  --agenda-answer: #f0ce91;
+  --agenda-answer-soft: #4d4029;
+}
+.island-edition .agenda-meeting [data-choice=no] {
+  --agenda-answer: #f1babc;
+  --agenda-answer-soft: #543538;
+}
+.island-edition .agenda-vote {
+  min-height: 43px;
+  padding: 3px clamp(3px, 1vw, 10px);
+  border: 0;
+  border-radius: 4px;
+  color: var(--agenda-answer);
+  background: transparent;
+  font-size: clamp(.8rem,1.5vw,.94rem);
+  line-height: 1.22;
+}
+.island-edition .agenda-vote > .editorial-ink { min-width: 0; }
+.island-edition .agenda-vote + .agenda-vote { border-inline-start: 1px solid #687385; }
+.island-edition .agenda-vote:hover:enabled { background: var(--agenda-answer-soft); }
+.island-edition .agenda-vote[aria-pressed=true],
+.island-edition .agenda-vote[aria-pressed=true]:hover:enabled {
+  color: #151d2b;
+  background: var(--agenda-answer);
+  box-shadow: none;
+}
+.island-edition .agenda-slot-footer { gap: 3px 8px; }
+.island-edition .agenda-tally { gap: 4px 8px; }
+.island-edition .agenda-tally-group strong {
+  padding: 1px 5px;
+  border: 1px solid #74809744;
+  border-radius: 3px;
+}
+.island-edition .agenda-saved { color: #a6dfc6; }
+.island-edition .agenda-manage {
+  min-height: 34px;
+  color: #f0ce91;
+  padding-inline: 6px 0;
+}
+.island-edition .agenda-history > summary { color: #f0ce91; }
+
+@media (min-width: 760px) {
+  .island-edition .agenda-slot[data-response] {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+}
+@media (max-width: 550px) {
+  .island-edition .agenda-cover { min-height: 108px; grid-template-columns: minmax(0, 1fr) 28%; }
+  .island-edition .agenda-cover:has(.agenda-reply-portrait) { grid-template-columns: minmax(0, 1fr) 36%; }
+  .island-edition .agenda-cover-copy { padding-block: 12px; }
+  .island-edition .agenda-cover-details { gap: 3px 9px; }
+  .island-edition .agenda-view button { min-height: 40px; }
+  .island-edition .agenda-slot-footer { min-height: 23px; }
+  .island-edition .agenda-vote { min-height: 44px; }
+}
+
+@media (max-width: 540px) {
+  .island-edition .agenda-cover:has(.agenda-cover-art[data-wide]) { grid-template-columns: minmax(0, 1fr); }
+  .island-edition .agenda-cover-art[data-wide] { aspect-ratio: 16/8; border: 0; border-top: 1px solid #b99c6263; }
+  .island-edition .agenda-cover-art[data-wide] .agenda-reply-portrait { object-position: 50% 40%; }
+  .island-edition .agenda-cover-art[data-wide]::after { display: none; }
+}

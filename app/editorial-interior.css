@@ -1,0 +1,152 @@
+/* Ink, warm stock and fine rules carry the same visual order from invitation to ballot. */
+.island-edition {
+  --paper: #fffdf8;
+  --stock: #f5f3ec;
+  --ink: #203c38;
+  --muted: #526560;
+  --rule: #c9ccc2;
+  --print-teal: #154f49;
+  --clay: #a44e36;
+  --project-ink: var(--ink);
+  --project-muted: var(--muted);
+  --project-edge: var(--rule);
+  --project-panel: var(--paper);
+}
+.island-edition :is(.sl-entry, .sl-casting, .agenda-meeting, .proposal-studio) {
+  --sl-palm: var(--ink);
+  --sl-moss: var(--muted);
+  --sl-rim: var(--rule);
+  --agenda-ink: var(--ink);
+  --agenda-soft: var(--muted);
+  --agenda-line: var(--rule);
+  --agenda-paper: var(--paper);
+  --proposal-ink: var(--ink);
+  --proposal-muted: var(--muted);
+  --proposal-line: var(--rule);
+  --proposal-paper: var(--paper);
+}
+.island-edition .project-primary,
+.island-edition .sl-invite-input .sl-open-invite {
+  background: var(--print-teal); border-color: var(--print-teal); color: var(--paper);
+  border-radius: 4px; box-shadow: none; min-height: 48px; padding-inline: 1.35em;
+}
+.island-edition .project-primary:hover:enabled,
+.island-edition .sl-open-invite:hover:enabled { background: #123e39; color: white; }
+.island-edition .project-secondary {
+  background: var(--paper); border: 1px solid #9daaa3; color: var(--ink); border-radius: 4px;
+}
+.island-edition input:not([type=checkbox]), .island-edition select {
+  background-color: #fffefa; color: var(--ink); border-color: #9aa9a1; border-radius: 4px;
+}
+
+.island-edition .project-entry.sl-entry {
+  grid-template-columns: minmax(0, 1.55fr) minmax(240px, 1fr);
+  border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); box-shadow: none;
+}
+.island-edition .sl-entry .sl-entry-copy {
+  padding: clamp(24px, 4vw, 52px); order: unset; width: 100%;
+}
+.island-edition .sl-entry .sl-entry-copy:only-child { grid-column: 1 / -1; }
+.island-edition .sl-entry .sl-organizer-path {
+  align-self: stretch; max-width: none; border: none; border-left: 1px solid var(--rule);
+  padding: clamp(24px, 4vw, 52px); margin: 0; background: #eaf0e9;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px;
+}
+.island-edition .sl-entry .sl-organizer-path p { font-size: 1rem; line-height: 1.7; color: var(--muted); }
+.island-edition .sl-entry .sl-organizer-path a {
+  display: inline-flex; align-items: center; width: fit-content; min-height: 46px;
+  color: var(--print-teal); font-weight: 700; padding: 0; border-bottom: 1px solid #718c7c;
+  text-decoration: none;
+}
+.island-edition .sl-entry :is(.sl-entry-copy, .sl-organizer-path) h2 {
+  font-size: clamp(1.65rem,3.1vw,2.55rem); color: var(--ink); line-height: 1.24; letter-spacing: -.025em;
+}
+.island-edition .sl-invite-form { margin-top: 1.4rem; }
+.island-edition .sl-entry .sl-entry-copy .project-feedback.is-error { color: #752f25; }
+
+.island-edition .sl-casting,
+.island-edition .proposal-editor,
+.island-edition .proposal-review,
+.island-edition .agenda-meeting {
+  border: 1px solid var(--rule); border-radius: 5px; background: var(--paper); box-shadow: none;
+}
+.island-edition .sl-casting .project-portrait {
+  border: 1px solid #b6bdb4; border-radius: 3px; background: var(--paper);
+  box-shadow: none; padding: 4px;
+}
+.island-edition .sl-casting .project-portrait::before { content: none; }
+.island-edition .sl-casting .project-portrait[aria-pressed=true] {
+  border-color: var(--print-teal); box-shadow: inset 0 0 0 2px var(--print-teal); transform: none;
+}
+.island-edition .sl-casting .sl-casting-check, .island-edition .proposal-check {
+  border: 1px solid white; color: white; background: var(--print-teal);
+}
+.island-edition .sl-casting .sl-casting-confirm { background: #214640; border-radius: 4px; }
+.island-edition .sl-casting .sl-casting-pass img.sl-selected-photo {
+  transform: none; box-shadow: none; border-radius: 3px; border-width: 3px;
+}
+.island-edition .sl-casting .project-identify-actions { border-top: 1px solid #75968a; }
+.island-edition .sl-casting .project-identify-actions .project-primary {
+  color: #173c36; background: #f7f5e9; border-color: #f7f5e9; box-shadow: none;
+}
+.island-edition .island-tools { padding-block: 3px 18px; border-color: var(--rule); }
+.island-edition .island-tools .project-mode { border-radius: 5px; border-color: var(--rule); background: #eaece4; }
+.island-edition .island-tools .project-mode button { border-radius: 3px; }
+.island-edition .island-list-head h2, .island-edition .proposal-title h2, .island-edition .sl-casting-heading h2 {
+  font-size: clamp(1.45rem, 2.7vw, 2.2rem); line-height: 1.35; color: var(--ink);
+}
+.island-edition .project-empty {
+  border: 1px solid var(--rule); border-inline-start: 3px solid var(--print-teal); border-radius: 4px;
+  color: var(--ink); background: var(--paper); padding: clamp(20px,3vw,36px); min-height: 156px;
+}
+.island-edition .project-empty p { max-width: 100%; }
+
+.island-edition .agenda-cover { background: var(--ink); }
+.island-edition .agenda-cover-art { border-left: 1px solid #e7e4d955; background: #dbe4dc; }
+.island-edition .agenda-cover-art:after { content: none; }
+.island-edition .agenda-cover-art:has(.agenda-reply-portrait) { background: #dbe4dc; }
+.island-edition .agenda-roster, .island-edition .proposal-window { background: #f2f3ec; }
+.island-edition .agenda-date h4 { background: #e7ece5; color: var(--ink); border-color: var(--rule); }
+.island-edition .agenda-view > div { border-radius: 4px; background: #f8f8f1; }
+.island-edition .agenda-view button { border-radius: 2px; min-height: 44px; }
+.island-edition .agenda-zone { font-size: .9rem; }
+.island-edition .agenda-zone::before { background: var(--clay); border-radius: 0; height: .95em; }
+.island-edition .agenda-time[data-zone=lk] .agenda-zone::before { background: var(--print-teal); }
+.island-edition .agenda-vote { border-radius: 4px; min-height: 46px; }
+.island-edition .agenda-slot { padding-block: 17px 12px; }
+.island-edition .agenda-time small, .island-edition .proposal-slot-values small { font-size: .875rem; }
+.island-edition .agenda-history > summary { color: var(--ink); }
+
+.island-edition .proposal-face-art, .island-edition .proposal-face-art img,
+.island-edition .proposal-window, .island-edition .proposal-submit { border-radius: 4px; }
+.island-edition .proposal-face[aria-pressed=true] .proposal-face-art { border-color: var(--paper); box-shadow: 0 0 0 2px var(--print-teal); }
+.island-edition .proposal-review { border-top: 3px solid var(--print-teal); }
+.island-edition .proposal-review-head > strong { color: var(--print-teal); background: #e8eee7; border-radius: 2px; }
+.island-edition .proposal-ticket-scene { display: none; }
+.island-edition .proposal-ticket-bottom { border-top: 1px solid var(--rule); }
+.island-edition .proposal-zone-headings { background: #f2f3ec; font-size: .875rem; }
+.island-edition .proposal-zone-headings > div:first-child { color: #93442e; }
+.island-edition .proposal-zone-headings > div:last-child { color: var(--print-teal); }
+.island-edition .project-members { border-radius: 4px; background: var(--paper); border-color: var(--rule); }
+.island-edition .project-members .project-notification { background: #f2f4ec; padding: 12px; font-size: .875rem; }
+.island-edition .project-confirm { border-radius: 6px; border-color: var(--rule); background: var(--paper); }
+.island-edition .project-confirm header { background: var(--ink); padding: 18px 24px; }
+
+@media(max-width:760px) {
+  .island-edition .project-entry.sl-entry { grid-template-columns: minmax(0,1fr); }
+  .island-edition .sl-entry .sl-organizer-path { border-left: 0; border-top: 1px solid var(--rule); padding-block: 22px; }
+  .island-edition .sl-entry .sl-invite-input { flex-wrap: wrap; }
+  .island-edition .sl-entry .sl-invite-input input { min-width: min(11em, 100%); }
+  .island-edition .agenda-hours b { font-size: clamp(1.15rem,4vw,1.5rem); }
+  .island-edition .agenda-hours b:last-child { font-size: .98rem; }
+  .island-edition .proposal-slot-values li > div { padding: 7px 4px; }
+}
+.island-edition .sl-role-label {
+  display: flex; align-items: center; gap: .65em; margin-bottom: 14px;
+  font-size: .9rem; color: var(--print-teal); font-weight: 700;
+}
+.island-edition .sl-role-label::before {
+  content: ""; display: block; flex: 0 0 23px; height: 2px; background: var(--clay);
+}
+.island-edition .sl-organizer-path .sl-role-label { margin-bottom: 0; }
+.island-edition .sl-organizer-path .sl-role-label::before { background: var(--print-teal); }

@@ -1,0 +1,79 @@
+/* Alpha lettering inherits ink color from its control, including pressed and
+   disabled states. The text remains selectable and available to assistive tech. */
+.island-edition .editorial-ink,
+.editorial-ink .ink-readable,
+.editorial-ink .ink-art {
+  display: inline;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+.editorial-ink .ink-art { display: none; }
+@supports ((mask-image: url("")) or (-webkit-mask-image: url(""))) {
+  .editorial-ink .ink-readable {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .editorial-ink .ink-art { display: inline; user-select: none; }
+}
+.editorial-ink .ink-token {
+  font: inherit;
+  color: inherit;
+  white-space: nowrap;
+}
+.editorial-ink :is(.ink-wordmark,.ink-glyph) {
+  display: inline-block;
+  height: 1.3125em;
+  vertical-align: -.34375em;
+  background-color: currentColor;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+}
+.editorial-ink .ink-wordmark {
+  max-width: 100%;
+  mask-image: var(--ink-image);
+  -webkit-mask-image: var(--ink-image);
+  mask-size: contain;
+  mask-position: left center;
+  -webkit-mask-size: contain;
+  -webkit-mask-position: left center;
+}
+.editorial-ink .ink-wordmark[data-finish] {
+  background: transparent;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+.editorial-ink .ink-wordmark[data-finish="title"] {
+  background: var(--ink-image) left center / contain no-repeat;
+}
+.editorial-ink .ink-wordmark[data-finish="arcade"] { position: relative; }
+.editorial-ink .ink-wordmark[data-finish="arcade"]::before,
+.editorial-ink .ink-wordmark[data-finish="arcade"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  mask: var(--ink-image) left center / contain no-repeat;
+  -webkit-mask: var(--ink-image) left center / contain no-repeat;
+}
+.editorial-ink .ink-wordmark[data-finish="arcade"]::before {
+  transform: translate(.027em, .048em);
+  background: var(--arcade-edge, color-mix(in srgb, currentColor 57%, #d1a35e));
+}
+.editorial-ink .ink-wordmark[data-finish="arcade"]::after {
+  background: linear-gradient(174deg, color-mix(in srgb, currentColor 93%, #f8bf64), currentColor 58%);
+}
+.editorial-ink .ink-glyph {
+  mask-image: url("/project/ink/atlas.webp");
+  -webkit-mask-image: url("/project/ink/atlas.webp");
+}
+@media (forced-colors: active), print {
+  .editorial-ink .ink-readable { position: static; clip-path: none; inline-size: auto; block-size: auto; white-space: normal; margin: 0; overflow: visible; }
+  .editorial-ink .ink-art { display: none; }
+}

@@ -1,0 +1,223 @@
+.confirmed-ticket {
+  --ticket-forest: #164736;
+  --ticket-gold: #ffd473;
+  --ticket-ink: #20362a;
+  --ticket-stock: #fff6dd;
+  --ticket-stitch: #aa9362;
+  min-width: 0;
+  margin: 0 var(--sheet-gutter, 16px) 18px;
+  border: 1px solid var(--ticket-ink);
+  border-radius: 15px;
+  background: var(--ticket-stock);
+  color: var(--ticket-ink);
+  box-shadow: 0 3px 0 var(--ticket-ink);
+}
+
+.confirmed-ticket-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 98px;
+  padding: 14px clamp(15px, 3.2vw, 32px);
+  padding-inline-end: clamp(103px, 24vw, 270px);
+  border-radius: 14px 14px 0 0;
+  background:
+    linear-gradient(90deg, #164736 10%, #164736f7 37%, #16473666 69%, #12392b1f),
+    url("/project/island/ella-compact.webp") center 68% / cover no-repeat,
+    var(--ticket-forest);
+  color: #fff0bc;
+}
+
+.confirmed-ticket-banner h4 {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  font-weight: 830;
+  line-height: 1.1;
+  text-shadow: 0 2px 0 #482c11;
+}
+
+.confirmed-ticket-banner img {
+  position: absolute;
+  inset: auto clamp(10px, 3.2vw, 34px) 0 auto;
+  display: block;
+  width: clamp(88px, 14vw, 128px);
+  height: auto;
+  filter: drop-shadow(0 3px 3px #12261c70);
+}
+
+.confirmed-ticket-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.confirmed-ticket-time {
+  min-width: 0;
+  padding: clamp(11px, 2.5vw, 25px) clamp(12px, 3.2vw, 32px);
+}
+
+.confirmed-ticket-time + .confirmed-ticket-time {
+  border-inline-start: 1px dashed var(--ticket-stitch);
+}
+
+.confirmed-ticket-zone,
+.confirmed-ticket-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 7px;
+}
+
+.confirmed-ticket-zone {
+  color: var(--ticket-forest);
+  font-size: .875rem;
+  font-weight: 790;
+}
+
+.confirmed-ticket-time[data-zone="jp"] .confirmed-ticket-zone {
+  color: #843c26;
+}
+
+.confirmed-ticket-zone abbr {
+  padding: 1px 4px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: .7rem;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.confirmed-ticket-date {
+  margin-top: 5px;
+  color: #555344;
+  font-size: .875rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.confirmed-ticket-range {
+  margin-top: 3px;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  font-size: clamp(.98rem, 2.45vw, 1.95rem);
+  font-weight: 780;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.035em;
+  line-height: 1.25;
+}
+
+.confirmed-ticket-actions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 13px clamp(12px, 3.2vw, 32px);
+  border-top: 1px dashed var(--ticket-stitch);
+}
+
+.confirmed-ticket-actions::before,
+.confirmed-ticket-actions::after {
+  position: absolute;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--ticket-ink);
+  border-radius: 50%;
+  background: var(--desk-white, #fffdf6);
+  clip-path: inset(0 0 0 50%);
+  content: "";
+  pointer-events: none;
+}
+
+.confirmed-ticket-actions::before {
+  inset-inline-start: -8px;
+}
+
+.confirmed-ticket-actions::after {
+  inset-inline-end: -8px;
+  clip-path: inset(0 50% 0 0);
+}
+
+.confirmed-ticket-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid #9c8e6a;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: var(--ticket-ink);
+  text-align: center;
+  font-size: .875rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.confirmed-ticket-button svg {
+  flex: none;
+}
+
+.confirmed-ticket-button small {
+  color: #624c22;
+  font-size: .75rem;
+}
+
+.confirmed-ticket-button[data-action="calendar"] {
+  border-color: #785620;
+  background: var(--ticket-gold);
+  box-shadow: 0 2px 0 #785620;
+}
+
+.confirmed-ticket-button[data-action="join"] {
+  border-color: var(--ticket-forest);
+  background: var(--ticket-forest);
+  color: #fff6da;
+}
+
+.confirmed-ticket-button:hover {
+  background: #eee5c9;
+}
+
+.confirmed-ticket-button[data-action="calendar"]:hover {
+  background: #ffe8a3;
+}
+
+.confirmed-ticket-button[data-action="join"]:hover {
+  background: #245d48;
+}
+
+.confirmed-ticket-feedback {
+  color: #185441;
+  font-size: .875rem;
+}
+
+.confirmed-ticket-feedback:not(:empty) {
+  padding: 0 clamp(12px, 3.2vw, 32px) 9px;
+}
+
+.confirmed-ticket-fallback {
+  padding: 0 clamp(12px, 3.2vw, 32px) 13px;
+}
+
+.confirmed-ticket-fallback textarea {
+  font-size: .9rem;
+}
+
+@media (max-width: 530px) {
+  .confirmed-ticket-banner {
+    min-height: 82px;
+  }
+
+  .confirmed-ticket-button {
+    flex: 1 1 10rem;
+  }
+}
+
+@media (max-width: 350px) {
+  .confirmed-ticket-range {
+    column-gap: 3px;
+  }
+}

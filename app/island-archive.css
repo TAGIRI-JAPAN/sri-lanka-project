@@ -1,0 +1,188 @@
+.island-archive {
+  --archive-forest: #113d34;
+  --archive-cream: #fbf3df;
+  --archive-gold: #ffd16a;
+  --archive-rust: #a23821;
+  --paper: var(--archive-cream);
+  --panel: #fffaf0;
+  --ink: var(--archive-forest);
+  --muted: #525e4f;
+  --stroke: #dfd3b8;
+  --accent: var(--archive-rust);
+  --accent-dark: #8c2d19;
+  --tint: #ffe6a6;
+  --green: #1e674d;
+  --amber: #785008;
+  --red: #a13e32;
+  min-height: 100svh;
+  color: var(--ink);
+  background: radial-gradient(ellipse at top, #f8dfab 0, transparent 30rem), var(--paper);
+}
+
+.island-archive .site-header {
+  position: static;
+  color: var(--archive-cream);
+  background: var(--archive-forest);
+  border-color: #ffffff29;
+}
+
+.island-archive .header-inner { width: min(100%, 1060px); }
+.island-archive .brand strong {
+  font-size: clamp(16px, 4vw, 22px);
+  font-weight: 850;
+  letter-spacing: -.025em;
+}
+.island-archive .brand-mark { flex: 0 0 31px; border-radius: 50%; background: var(--archive-gold); }
+.island-archive .brand-mark i { background: var(--archive-forest); }
+.island-archive .language {
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 999px;
+  border-color: #ffffff40;
+  background: #ffffff0d;
+}
+.island-archive .language button {
+  min-height: 40px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--archive-cream);
+  font-size: .875rem;
+}
+.island-archive .language button[aria-pressed="true"] { background: var(--archive-gold); color: var(--ink); }
+
+.island-archive .shell { width: min(100%, 1060px); padding-top: clamp(20px, 4vw, 46px); }
+.island-archive-banner {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: clamp(28px, 6vw, 58px);
+  padding: clamp(19px, 3.4vw, 37px);
+  min-height: 194px;
+  overflow: hidden;
+  border-radius: clamp(17px, 3vw, 27px);
+  background: var(--archive-forest);
+  color: var(--archive-cream);
+  margin-bottom: 18px;
+}
+.island-archive-banner::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(90deg, var(--archive-forest) 8%, #113d34f0 31%, #113d349c 56%, #113d3419 94%),
+    url("/project/island/ella-compact.webp") right 49% / min(730px, 82%) auto no-repeat;
+}
+.island-archive-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 6px 12px;
+  border: 1px solid #fff3d66b;
+  border-radius: 999px;
+  background: #0b3028c9;
+  font-size: .875rem;
+  font-weight: 700;
+}
+.island-archive-back:hover { background: var(--archive-cream); color: var(--archive-forest); }
+.island-archive :is(.site-header, .island-archive-banner) :focus-visible { outline-color: var(--archive-gold); }
+.island-archive-heading { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.island-archive-heading h1 {
+  font-size: clamp(27px, 4.7vw, 52px);
+  font-weight: 850;
+  line-height: 1.16;
+  letter-spacing: -.035em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.island-archive .status { color: #472e0b; font-size: .875rem; white-space: nowrap; }
+.island-archive .status.confirmed { color: #22503c; }
+
+.island-archive .panel { border-radius: clamp(15px, 2.6vw, 23px); box-shadow: 0 8px 25px #452f1110; }
+.island-archive .panel h2 { font-size: clamp(1.2rem, 3vw, 1.45rem); }
+.island-archive .panel p { font-size: 1rem; }
+.island-archive .previous h2 { margin-bottom: 9px; }
+.island-archive .previous li a { min-height: 62px; padding-block: 10px; font-size: 1rem; }
+.island-archive .previous li small { margin: 0; font-size: .875rem; font-weight: 750; }
+.island-archive .poll-note { max-width: 70ch; }
+.island-archive .poll-controls { margin-top: 0; }
+.island-archive .poll-note + .poll-controls { margin-top: 16px; }
+.island-archive .field > span, .island-archive .time-pair span { font-size: .875rem; }
+.island-archive .field :is(input, select) { min-height: 46px; font-size: 1rem; }
+.island-archive select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--archive-forest) 50%), linear-gradient(135deg, var(--archive-forest) 50%, transparent 50%);
+  background-position: right 17px center, right 12px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 32px;
+}
+.island-archive .button {
+  min-height: 46px;
+  border-radius: 11px;
+  font-size: .875rem;
+  padding-inline: 15px;
+}
+.island-archive .primary { background: var(--archive-forest); }
+.island-archive .primary:hover:enabled { background: #225749; }
+.island-archive .hint { color: var(--muted); }
+.island-archive .panel .hint { font-size: .875rem; }
+.island-archive .island-archive-saved { background: #e3f0e4; color: var(--archive-forest); }
+.island-archive .panel .notice { font-size: .9375rem; }
+
+.island-archive-voting-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+}
+.island-archive-voting-head h3 { margin: 0; font-size: 1.0625rem; }
+.island-archive .island-archive-voting-head p { color: var(--muted); font-size: .875rem; }
+.island-archive .ballot { padding: 14px; border-radius: 13px; background: #fbf1d8; }
+.island-archive .time-pair strong { font-size: 1rem; }
+.island-archive .vote-options { gap: 6px; }
+.island-archive .vote-option > span {
+  display: flex;
+  width: auto;
+  min-width: 70px;
+  min-height: 47px;
+  height: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding-inline: 7px;
+  font-size: .875rem;
+}
+.island-archive .vote-option b { font-size: 1.125rem; }
+.island-archive .vote-option:hover > span { border-color: currentColor; }
+.island-archive .vote-option input:checked + span { border: 1px solid currentColor; background: #fff0bd; box-shadow: inset 0 0 0 1px currentColor; }
+.island-archive .results-header { flex-wrap: wrap; }
+.island-archive .result-scroll { overscroll-behavior-inline: contain; }
+.island-archive .result-scroll th, .island-archive .result-scroll td { font-size: .875rem; }
+.island-archive .footer { background: var(--archive-forest); color: var(--archive-cream); font-size: .875rem; }
+
+@media (max-width: 680px) {
+  .island-archive-banner::before {
+    background:
+      linear-gradient(90deg, var(--archive-forest), #113d34d1 44%, #113d3450 100%),
+      url("/project/island/ella-compact.webp") right center / cover no-repeat;
+  }
+  .island-archive .ballot { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .island-archive .ballot .time-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .island-archive .ballot .time-pair > div { min-width: 0; }
+  .island-archive .ballot .time-pair > div + div { border-left: 1px solid var(--stroke); padding-left: 10px; }
+  .island-archive .vote-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .island-archive .vote-option > span { min-width: 0; padding-inline: 2px; }
+  .island-archive .voting .primary { width: 100%; }
+}
+
+@media (max-width: 380px) {
+  .island-archive .header-inner { gap: 8px; }
+  .island-archive .language button { padding-inline: 7px; }
+  .island-archive .vote-option > span { flex-direction: column; gap: 0; padding-block: 2px; }
+}

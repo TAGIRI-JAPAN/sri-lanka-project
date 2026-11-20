@@ -1,0 +1,60 @@
+.project-scenery {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #10483f;
+}
+.project-scenery picture {
+  position: absolute;
+  inset: 0 0 0 22%;
+  display: block;
+}
+.project-scenery picture img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--scenery-focus);
+}
+.project-scenery::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(96deg, #06382f 0%, #0d493f 20%, #114f46ed 27%, #0c4941a1 37%, #0d493f22 53%, transparent 67%);
+}
+.project-scenery-object {
+  position: absolute;
+  z-index: 1;
+  inset: auto 4% 1% auto;
+  height: 68%;
+  width: auto;
+  max-width: 23%;
+  object-fit: contain;
+  object-position: bottom;
+  filter: drop-shadow(0 3px 2px #12322166);
+}
+.project-scenery[data-view=overview] .project-scenery-object,
+.project-scenery[data-view=complete] .project-scenery-object {
+  height: 53%;
+  right: 3%;
+  rotate: -5deg;
+}
+@media (max-width: 580px) {
+  .project-scenery picture { left: 18%; }
+  .project-scenery picture img { object-position: var(--scenery-mobile-focus); }
+  .project-scenery::after {
+    background: linear-gradient(96deg, #06382f 1%, #10483ff5 24%, #10483fc7 37%, #10483f50 52%, transparent 69%);
+  }
+  .project-scenery-object {
+    right: 2%;
+    bottom: 1%;
+    height: 56%;
+    max-width: 24%;
+  }
+}
+.project-scenery[data-night] { background: #153b43; }
+.project-scenery[data-night]::after {
+  background: linear-gradient(96deg, #0c3435 4%, #123b45f5 26%, #153d4ab8 38%, #12344338 54%, transparent 70%);
+}
