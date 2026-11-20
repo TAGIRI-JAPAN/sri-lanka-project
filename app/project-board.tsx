@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
-  AVATAR_IDS, customPortrait, expandCandidateWindows, MAX_PROJECT_SLOTS, projectChoices, projectMarks, PROJECT_ORGANIZER_NAME,
+  AVATAR_IDS, customPortrait, expandCandidateWindows, MAX_PROJECT_SLOTS, projectCharacterName, projectChoices, projectMarks, PROJECT_ORGANIZER_NAME,
   type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard as Board, type ProjectChoice, type ProjectPortraits, type Proposal,
 } from "@/lib/project";
 import { COLOMBO, dateLabel, DURATIONS, MAX_NAME_LENGTH, timeLabel, TOKYO, uuid, wallTime, zoneName, type Language } from "@/lib/schedule";
@@ -51,6 +51,7 @@ const copy = {
     open: "回答受付中", closed: "受付終了", confirmed: "日程が決まりました", finalizedSlot: "確定した日時", complete: "全員回答済み",
     preferred: "最優先", yes: "参加可", maybe: "要相談", no: "参加不可", vote: "出欠を入力", editVote: "回答を変更",
     pending: "未回答", voted: "回答を受け付けました", votedState: "回答済み", review: "回答を確認", waiting: "未回答",
+    cancelVoteHint: "選択中のボタンをもう一度押すと、未回答に戻ります。", voteCanceled: "回答を取り消しました。", closedVote: "この打ち合わせの回答受付は終了しました。",
     ineligible: "この候補の回答対象外です。", seatTaken: "この打ち合わせの回答枠が埋まりました。", confirm: "日程を確定", reopen: "回答受付を再開",
     confirmPrompt: "この枠を日程に確定し、この打ち合わせの回答受付を終了します。", confirmedSaved: "日程を確定しました。", reopened: "回答受付を再開しました。",
     editMeeting: "編集", deleteMeeting: "削除", editHeading: "日程提案を編集",
@@ -91,6 +92,7 @@ const copy = {
     open: "Accepting responses", closed: "Responses closed", confirmed: "Time confirmed", finalizedSlot: "Confirmed time", complete: "Everyone has responded",
     preferred: "Preferred", yes: "Available", maybe: "Maybe", no: "Unavailable", vote: "Add availability", editVote: "Edit response",
     pending: "No response yet", voted: "Your response was saved.", votedState: "Responded", review: "Check responses", waiting: "Awaiting response",
+    cancelVoteHint: "Select your current answer again to clear it.", voteCanceled: "Your answer was cleared.", closedVote: "This meeting is no longer accepting responses.",
     ineligible: "You are not on the response list for this time.", seatTaken: "All response places for this meeting are filled.", confirm: "Confirm this time", reopen: "Reopen responses",
     confirmPrompt: "Confirm this slot and close responses for this meeting.", confirmedSaved: "The time was confirmed.", reopened: "Responses have reopened.",
     editMeeting: "Edit", deleteMeeting: "Delete", editHeading: "Edit proposed times",
@@ -128,7 +130,11 @@ function localName(name: string, language: Language) {
 
 function savedGuestName(profile: NonNullable<Board["profile"]>) {
   const name = profile.displayName ?? "";
-  return localName(name, "ja") === `キャラクター ${Number(profile.avatar)}` ? "" : name;
+  return name === projectCharacterName(profile.avatar) || localName(name, "ja") === `キャラクター ${Number(profile.avatar)}` ? "" : name;
+}
+
+function characterLabel(avatar: ProjectAvatar, language: Language) {
+  return projectCharacterName(avatar) ?? `${copy[language].character} ${Number(avatar)}`;
 }
 
 function placeName(zone: string, language: Language) {
@@ -163,7 +169,7 @@ function AudienceIcons({ board, sets, language, meeting, draft, limit }: {
   const modern = meetingId ? board.meetingAudience[meetingId] : draft?.map(avatar => ({ avatar, member: board.portraitOwners[avatar] ?? null }));
   const legacy = meetingId ? board.legacyAudience?.[meetingId] : undefined;
   const people = modern?.length ? modern.map(({ avatar, member }) => ({
-    key: avatar, avatar, member, name: member ? localName(member.name, language) : `${t.portrait} ${Number(avatar)} · ${t.unregistered}`,
+    key: avatar, avatar, member, name: member ? localName(member.name, language) : `${characterLabel(avatar, language)} · ${t.unregistered}`,
   })) : legacy?.members.map(member => ({
     key: member.id, avatar: member.avatar, member, name: localName(member.name, language),
   })) ?? [];
@@ -230,11 +236,12 @@ function ProjectTimes({ start, duration, language, primary = TOKYO, grouped = fa
 type ReplyReceipt = { image: string | undefined; wide: boolean; name: string };
 
 function ProposalSlot({ item, board, sets, language, primary, grouped = true, pending, feedback, receipt, busy, onVote, onConfirm }: {
-  item: Proposal; board: Board; sets: PortraitSets; language: Language; primary: string; grouped?: boolean; pending: ProjectChoice | undefined;
+  item: Proposal; board: Board; sets: PortraitSets; language: Language; primary: string; grouped?: boolean; pending: ProjectChoice | null | undefined;
   feedback: Feedback | undefined; receipt?: ReplyReceipt; busy: boolean; onVote: (choice: ProjectChoice) => void; onConfirm: () => void;
 }) {
   const t = copy[language];
-  const ownChoice = pending ?? item.ownChoice;
+  const saving = pending !== undefined;
+  const ownChoice = saving ? pending : item.ownChoice;
   const waitingCount = Math.max(0, item.totalRespondents - item.responses.length);
   const manage = item.canManage && !item.meetingClosed;
   const canVote = item.eligible && !item.meetingClosed;
@@ -244,11 +251,12 @@ function ProposalSlot({ item, board, sets, language, primary, grouped = true, pe
     {item.confirmed && <p className="meeting-final"><img src="/project/art/u04.webp" alt="" width={20} height={20} /><Ink text={t.finalizedSlot} /></p>}
     <ProjectTimes start={item.start} duration={item.duration} language={language} primary={primary} grouped={grouped} />
     {showResponse && <div className="meeting-responses">
-      {canVote && item.ownChoice && <p className="meeting-response-edit-label"><Ink text={t.editVote} /></p>}
-      {canVote && <div className="meeting-votes" role="group" aria-label={item.ownChoice ? t.editVote : t.vote}>
+      {canVote && ownChoice && <p id={`edit-response-${item.id}`} className="meeting-response-edit-label"><Ink text={t.cancelVoteHint} /></p>}
+      {canVote && <div className="meeting-votes" role="group" aria-label={ownChoice ? t.editVote : t.vote}
+        aria-describedby={ownChoice ? `edit-response-${item.id}` : undefined}>
         {projectChoices.map(choice => <button type="button" className="meeting-vote" key={choice} data-choice={choice}
           aria-pressed={ownChoice === choice} aria-label={projectMarks[choice] + " " + t[choice]}
-          disabled={Boolean(pending) || busy} onClick={() => onVote(choice)}>
+          disabled={saving || busy} onClick={() => onVote(choice)}>
           <span className="meeting-vote-mark" aria-hidden="true"><Ink text={projectMarks[choice]} /></span>
           <span className="meeting-vote-label"><Ink text={t[choice]} /></span>
         </button>)}
@@ -262,7 +270,7 @@ function ProposalSlot({ item, board, sets, language, primary, grouped = true, pe
               <b aria-hidden="true"><Ink text={projectMarks[choice]} /> {people.length}</b>
               <ul>{people.map(person => <li key={person.id}>
                 <Avatar src={photo(sets, person.avatar)} name={localName(person.name, language)}
-                  own={person.id === board.viewerId} showName={Boolean(person.avatar && customPortrait(person.avatar))} />
+                  own={person.id === board.viewerId} showName={Boolean(person.avatar && (projectCharacterName(person.avatar) || customPortrait(person.avatar)))} />
               </li>)}</ul>
             </div>;
           })}
@@ -271,9 +279,10 @@ function ProposalSlot({ item, board, sets, language, primary, grouped = true, pe
           </span>}
         </div>
         <span className="meeting-saved" role="status">
-          {pending ? <Ink text={t.saving} /> : feedback && !feedback.error && !receipt ? <Ink text={t.votedState} /> : null}
+          {saving ? <Ink text={t.saving} /> : feedback?.message === "voteCanceled" ? <Ink text={t.voteCanceled} />
+            : feedback?.message === "voted" && !receipt ? <Ink text={t.votedState} /> : null}
         </span>
-        {manage && <button className="meeting-confirm-button" type="button" disabled={busy || Boolean(pending)}
+        {manage && <button className="meeting-confirm-button" type="button" disabled={busy || saving}
           aria-haspopup="dialog" onClick={onConfirm}>
           <Ink text={t.confirm} />
         </button>}
@@ -286,12 +295,12 @@ function ProposalSlot({ item, board, sets, language, primary, grouped = true, pe
         <p><Ink text={receipt.name} /></p>
       </div>
     </div>}
-    {feedback?.error && <p role="alert" className="project-feedback is-error"><Ink text={t[feedback.message]} /></p>}
+    {feedback?.error && <p role="alert" className="project-feedback is-error"><Ink text={t[feedback.message] ?? t.unavailable} /></p>}
   </li>;
 }
 
 function MeetingCard({ slots, board, sets, language, pending, feedback, busy, revealed, onVote, onConfirm, onEdit, onDelete }: {
-  slots: Proposal[]; board: Board; sets: PortraitSets; language: Language; pending: Record<string, ProjectChoice>;
+  slots: Proposal[]; board: Board; sets: PortraitSets; language: Language; pending: Partial<Record<string, ProjectChoice | null>>;
   feedback: Record<string, Feedback>; busy: boolean; revealed: string | null;
   onVote: (slot: Proposal, choice: ProjectChoice) => void; onConfirm: (slot: Proposal) => void;
   onEdit: (slots: Proposal[]) => void; onDelete: (meeting: Proposal) => void;
@@ -335,7 +344,7 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
   const japanese = language === "ja";
   const zonePrompt = japanese ? "日付の基準" : "Group dates by";
   function jumpToUnanswered() {
-    const available = unanswered.filter(slot => !pending[slot.id]);
+    const available = unanswered.filter(slot => pending[slot.id] === undefined);
     if (!available.length) return;
     const index = available.findIndex(slot => slot.id === lastJump.current);
     const { id } = available[(index + 1) % available.length];
@@ -395,7 +404,7 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
       <button type="button" aria-pressed={showUnanswered} onClick={() => setOnlyUnanswered(value => !value)}>
         {japanese ? <Ink text={t.unansweredOnly} /> : t.unansweredOnly}
       </button>
-      <button type="button" onClick={jumpToUnanswered} disabled={unanswered.every(slot => pending[slot.id])}>
+      <button type="button" onClick={jumpToUnanswered} disabled={unanswered.every(slot => pending[slot.id] !== undefined)}>
         {japanese ? <Ink text={t.nextUnanswered} /> : t.nextUnanswered}<ArrowDown size={15} aria-hidden="true" />
       </button>
     </div>}
@@ -417,7 +426,7 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
       </div>
     </div>
     {!showUnanswered && <ProjectRecommendations slots={slots} board={board} portraits={sets.kirie} language={language}
-      busy={busy || slots.some(slot => Boolean(pending[slot.id]))} onConfirm={onConfirm} />}
+      busy={busy || slots.some(slot => pending[slot.id] !== undefined)} onConfirm={onConfirm} />}
     {confirmedSlot && dateSections.length > 0 ? <details className="meeting-history">
       <summary><Ink text={japanese ? "候補ごとの回答を確認" : "Review responses for each time"} /></summary>
       {dateSections}
@@ -449,7 +458,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const [sets, setSets] = useState<PortraitSets>({});
   const [portraitErrors, setPortraitErrors] = useState<Partial<Record<ProjectAvatarStyle, boolean>>>({});
   const [portraitRetry, setPortraitRetry] = useState(0);
-  const [pending, setPending] = useState<Record<string, ProjectChoice>>({});
+  const [pending, setPending] = useState<Partial<Record<string, ProjectChoice | null>>>({});
   const [voteFeedback, setVoteFeedback] = useState<Record<string, Feedback>>({});
   const [revealed, setRevealed] = useState<string | null>(null);
   const [linkedMeeting, setLinkedMeeting] = useState<string | null>(null);
@@ -677,37 +686,43 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   }
 
   async function vote(item: Proposal, choice: ProjectChoice) {
-    if (!board || !item.eligible || item.meetingClosed || item.ownChoice === choice || votesInFlight.current.has(item.id)) return;
+    if (!board || !item.eligible || item.meetingClosed || votesInFlight.current.has(item.id)) return;
+    const canceling = item.ownChoice === choice;
+    const nextChoice = canceling ? null : choice;
     const session = authRevision.current;
     votesInFlight.current.add(item.id);
-    setPending(old => ({ ...old, [item.id]: choice }));
+    setPending(old => ({ ...old, [item.id]: nextChoice }));
     setVoteFeedback(old => {
       const next = { ...old };
       delete next[item.id];
       return next;
     });
     try {
-      await boardRequest(token.current, { action: "vote", id: item.id, choice });
+      const result = await boardRequest<{ canceled?: boolean }>(token.current, { action: canceling ? "cancelVote" : "vote", id: item.id, choice });
       if (authRevision.current !== session) return;
+      if (canceling && !result.canceled) {
+        await refresh().catch(() => {});
+        return;
+      }
       setBoard(previous => previous ? {
         ...previous,
         proposals: previous.proposals.map(candidate => candidate.id === item.id ? {
-          ...candidate, ownChoice: choice, ownAvailability: null,
-          waiting: candidate.waiting.filter(person => person.id !== previous.viewerId),
-          responses: [...candidate.responses.filter(person => person.id !== previous.viewerId), {
+          ...candidate, ownChoice: nextChoice, ownAvailability: null,
+          waiting: canceling ? candidate.waiting : candidate.waiting.filter(person => person.id !== previous.viewerId),
+          responses: [...candidate.responses.filter(person => person.id !== previous.viewerId), ...(nextChoice ? [{
             id: previous.viewerId, name: previous.memberName ?? PROJECT_ORGANIZER_NAME,
-            choice, avatar: responseAvatar(previous, candidate) ?? null, avatarStyle: previous.profile?.avatarStyle ?? null, availability: null,
-          }],
+            choice: nextChoice, avatar: responseAvatar(previous, candidate) ?? null, avatarStyle: previous.profile?.avatarStyle ?? null, availability: null,
+          }] : [])],
         } : candidate),
       } : previous);
-      setVoteFeedback(old => ({ ...old, [item.id]: { message: "voted" } }));
-      setRevealed(item.id);
+      setVoteFeedback(old => ({ ...old, [item.id]: { message: canceling ? "voteCanceled" : "voted" } }));
+      setRevealed(previous => canceling && previous !== item.id ? previous : nextChoice ? item.id : null);
       await refresh().catch(() => {});
     } catch (error) {
       if (authRevision.current !== session) return;
       const message = (error as Error).message as Message;
       if (message === "seatTaken") setFeedback({ message, error: true });
-      else setVoteFeedback(old => ({ ...old, [item.id]: { message, error: true } }));
+      else setVoteFeedback(old => ({ ...old, [item.id]: { message: message === "closed" ? "closedVote" : message, error: true } }));
       void refresh().catch(() => {});
     } finally {
       if (authRevision.current === session) {
@@ -926,9 +941,10 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                 if (!portrait) return null;
                 const taken = !guestPicker && Boolean(board?.takenAvatars.includes(id));
                 const selected = !taken && chosen === id;
+                const name = characterLabel(id, language);
                 const detail = taken ? t.taken : selected ? t.selected : !guestPicker && customPortrait(id) ? t.unnamed : "";
                 return <button className="project-portrait" type="button" key={id} disabled={taken || busy} data-taken={taken || undefined}
-                  aria-label={t.character + " " + Number(id) + (detail ? " · " + detail : "")} aria-pressed={selected} data-portrait-id={id}
+                  aria-label={name + (detail ? " · " + detail : "")} aria-pressed={selected} data-portrait-id={id}
                   onClick={() => {
                     setChosen(id);
                     if (!guestPicker) setDisplayName(old => old || ownName);
@@ -936,7 +952,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                   }}>
                   <img className="project-portrait-photo" src={portrait} alt="" width={400} height={400} />
                   {selected && <span className="sl-casting-check" aria-hidden="true"><img src="/project/art/u04.webp" width={24} height={24} alt="" /></span>}
-                  {detail && <span className="project-portrait-tag"><Ink text={detail} /></span>}
+                  <span className="project-portrait-tag"><Ink text={name} /></span>
                 </button>;
               })}
             </div> : <p className="project-muted" role="status">
@@ -945,11 +961,14 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
             <div className="sl-casting-confirm">
               <div className="sl-casting-pass" data-selected={Boolean(chosen && !selectedTaken) || undefined}>
                 {chosen && !selectedTaken && activePortraits && <img className="sl-selected-photo" src={activePortraits[chosen]} alt="" width={200} height={200} />}
-                <div aria-live="polite"><strong><Ink text={chosen && !selectedTaken ? (guestPicker ? t.character + " " + Number(chosen) : requiresName ? displayName.trim() || t.unnamed : ownName) : (language === "ja" ? "未選択" : "Select a portrait")} /></strong>
+                <div aria-live="polite"><strong><Ink text={chosen && !selectedTaken
+                  ? (guestPicker || requiresName ? displayName.trim() || characterLabel(chosen, language) : characterLabel(chosen, language))
+                  : (language === "ja" ? "未選択" : "Select a portrait")} /></strong>
                 </div>
               </div>
               {chosen && (guestPicker || requiresName) && !selectedTaken && <Field label={<Ink text={guestPicker ? guestNameLabel : t.name} />}>
-                <input value={displayName} required={requiresName} autoComplete="nickname" maxLength={MAX_NAME_LENGTH} onChange={event => setDisplayName(event.target.value)} />
+                <input value={displayName} required={requiresName} autoComplete="nickname" maxLength={MAX_NAME_LENGTH}
+                  placeholder={guestPicker ? characterLabel(chosen, language) : undefined} onChange={event => setDisplayName(event.target.value)} />
               </Field>}
               {allTaken && <p className="project-muted"><Ink text={t.full} /></p>}
               {!dialog && status}
@@ -1118,14 +1137,14 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                       const name = owner ? localName(owner.name, language) : t.unregistered;
                       const self = owner?.id === board.viewerId;
                       const selected = respondentAvatars.includes(avatar);
-                      const label = owner ? name + (self ? ` · ${t.self}` : "") : `${t.portrait} ${Number(avatar)} · ${name}`;
+                      const label = owner ? name + (self ? ` · ${t.self}` : "") : `${characterLabel(avatar, language)} · ${name}`;
                       return <button className="proposal-face" type="button" key={avatar} data-portrait-id={avatar}
                         aria-label={label} title={label} aria-pressed={selected} disabled={busy} onClick={() => toggleAudience(avatar)}>
                         <span className="proposal-face-art">
                           <img src={activePortraits[avatar]} alt="" width={100} height={100} />
                           {selected && <span className="proposal-check" aria-hidden="true"><img src="/project/art/u04.webp" width={24} height={24} alt="" /></span>}
                         </span>
-                        {owner && <span className="proposal-face-name"><Ink text={self ? t.self : name} /></span>}
+                        <span className="proposal-face-name"><Ink text={owner ? self ? t.self : name : characterLabel(avatar, language)} /></span>
                       </button>;
                     })}
                   </div> : <p role="status">
