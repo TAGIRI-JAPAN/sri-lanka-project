@@ -1,15 +1,15 @@
 import { env } from "cloudflare:workers";
 import { getProjectMember, isProjectOrganizer } from "@/lib/project-access";
-import { AVATAR_IDS, customPortrait, expandCandidateWindows, PROJECT_COMPLETION_EMAIL, PROJECT_ORGANIZER_ID, PROJECT_ORGANIZER_NAME, type AvailabilityWindow, type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard, type ProjectMember, type ProjectRespondent, type ProjectTargetRespondent, type Proposal } from "@/lib/project";
-import { choices, DURATIONS, MAX_NAME_LENGTH, parseWall, uuid, validZone, type Choice } from "@/lib/schedule";
+import { AVATAR_IDS, customPortrait, expandCandidateWindows, PROJECT_COMPLETION_EMAIL, PROJECT_ORGANIZER_ID, PROJECT_ORGANIZER_NAME, projectChoices, type AvailabilityWindow, type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard, type ProjectChoice, type ProjectMember, type ProjectRespondent, type ProjectTargetRespondent, type Proposal } from "@/lib/project";
+import { DURATIONS, MAX_NAME_LENGTH, parseWall, uuid, validZone } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
 type ProposalRow = Pick<Proposal, "id" | "title" | "start" | "duration"> & {
   meeting_id: string | null; meeting_url: string | null; proposer_id: string | null; respondents: string; confirmed: number;
 };
-type ResponseRow = { proposal_id: string; member_id: string; choice: Choice; availability: string | null };
-type SavedResponse = { choice: Choice; availability: AvailabilityWindow[] | null };
+type ResponseRow = { proposal_id: string; member_id: string; choice: ProjectChoice; availability: string | null };
+type SavedResponse = { choice: ProjectChoice; availability: AvailabilityWindow[] | null };
 type ProfileRow = { id: string; avatar: ProjectAvatar; avatar_style: ProjectAvatarStyle; display_name: string | null };
 type TargetRow = { meeting_id: string; avatar: ProjectAvatar; member_id: string | null };
 type ProfileInput = { avatar: ProjectAvatar; avatarStyle: ProjectAvatarStyle | null; name: string | null };
@@ -83,10 +83,10 @@ function isMinute(value: unknown): value is number {
   return typeof value === "number" && Math.abs(value) <= 8.64e15 && value % 60_000 === 0;
 }
 
-function readAvailability(value: unknown, choice: Choice): AvailabilityWindow[] | null {
+function readAvailability(value: unknown, choice: ProjectChoice): AvailabilityWindow[] | null {
   if (!Array.isArray(value)) return null;
   if (value.length === 0) return choice === "no" ? [] : null;
-  if (choice !== "yes") return null;
+  if (choice !== "yes" && choice !== "preferred") return null;
 
   const windows: AvailabilityWindow[] = [];
   for (const entry of value) {
@@ -139,6 +139,7 @@ function saveResponse(db: D1Database, proposalId: string, memberId: string, resp
 
 function queueCompletion(db: D1Database, proposalId: string, meetingId: string | null) {
   // Snapshot at the vote that completes every slot, with one notification per meeting.
+  // The existing notification tuple counts both levels of availability together.
   return db.prepare(
     `WITH participants(id) AS (
        SELECT id FROM project_members WHERE id <> ?
@@ -157,7 +158,8 @@ function queueCompletion(db: D1Database, proposalId: string, meetingId: string |
        WHERE NOT EXISTS (SELECT 1 FROM project_meeting_respondents target WHERE target.meeting_id = p.meeting_id)
      ), totals AS (
        SELECT p.id, p.start, p.duration, p.title, COUNT(r.choice) AS answered, COUNT(*) AS expected,
-         SUM(r.choice = 'yes') AS yes_count, SUM(r.choice = 'maybe') AS maybe_count, SUM(r.choice = 'no') AS no_count
+         SUM(r.choice = 'preferred') AS preferred_count, SUM(r.choice IN ('preferred', 'yes')) AS yes_count,
+         SUM(r.choice = 'maybe') AS maybe_count, SUM(r.choice = 'no') AS no_count
        FROM slots p JOIN expected_responses expected ON expected.proposal_id = p.id
        LEFT JOIN project_responses r ON r.proposal_id = p.id AND r.member_id = expected.member_id
        GROUP BY p.id
@@ -166,7 +168,7 @@ function queueCompletion(db: D1Database, proposalId: string, meetingId: string |
        (meeting_id, recipient, title, candidate_count, all_yes_count, top_slots, completed_at)
      SELECT COALESCE((SELECT id FROM meeting), ?), ?, MIN(title), COUNT(*), SUM(yes_count = expected),
        (SELECT json_group_array(json_array(start, duration, yes_count, maybe_count, no_count))
-        FROM (SELECT * FROM totals ORDER BY no_count ASC, yes_count DESC, start ASC, id ASC LIMIT 5)), ?
+        FROM (SELECT * FROM totals ORDER BY preferred_count DESC, no_count ASC, yes_count DESC, start ASC, id ASC LIMIT 5)), ?
      FROM totals
      HAVING COUNT(*) > 0 AND SUM(answered) = SUM(expected)
      ON CONFLICT(meeting_id) DO NOTHING`
@@ -354,7 +356,7 @@ export async function POST(request: Request) {
 
   if (body.action === "vote") {
     if (!actor) return fail("inviteRequired", 403);
-    if (typeof body.id !== "string" || !uuid.test(body.id) || !choices.includes(body.choice)) return fail("invalid", 400);
+    if (typeof body.id !== "string" || !uuid.test(body.id) || !projectChoices.includes(body.choice)) return fail("invalid", 400);
     const item = await db.prepare(
       `SELECT respondents, meeting_id,
         EXISTS (SELECT 1 FROM project_meeting_respondents target WHERE target.meeting_id = project_proposals.meeting_id) AS uses_portraits,
