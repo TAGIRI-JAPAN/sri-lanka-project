@@ -90,6 +90,7 @@
   font-weight: 740;
   font-variant-numeric: tabular-nums;
 }
+.project-recommendation-totals [data-result="preferred"] { color: #244278; background: #e1eaf7; }
 .project-recommendation-totals [data-result="yes"] { color: #286447; background: #e5efdb; }
 .project-recommendation-totals [data-result="maybe"] { color: #75521c; background: #fff0c7; }
 .project-recommendation-totals [data-result="no"] { color: #883d2a; background: #f9e5da; }

@@ -197,7 +197,8 @@
 .meeting-time small { color: #526156; font-size: .76rem; line-height: 1.42; }
 
 .meeting-responses { min-width: 0; display: grid; gap: 8px; align-content: start; }
-.meeting-votes { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
+.meeting-votes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.meeting-sheet [data-choice="preferred"] { --choice-ink: #244278; --choice-soft: #e1eaf7; --choice-line: #86a1c7; }
 .meeting-sheet [data-choice="yes"] { --choice-ink: #175a49; --choice-soft: #e8f0e7; --choice-line: #b2cbbb; }
 .meeting-sheet [data-choice="maybe"] { --choice-ink: #754a14; --choice-soft: #f4ecda; --choice-line: #dbcaa6; }
 .meeting-sheet [data-choice="no"] { --choice-ink: #963d35; --choice-soft: #f9eae5; --choice-line: #dfb9b1; }

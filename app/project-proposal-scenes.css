@@ -1,0 +1,141 @@
+.renewed-project .proposal-review-head {
+  min-height: 84px;
+  padding-inline: clamp(12px, 2vw, 19px);
+  gap: 9px;
+  background:
+    linear-gradient(90deg, #12392f 3%, #12392ff2 32%, #12392fc9 68%, #12392f88),
+    url("/project/island/ella-tea-rail-small.webp") right 58% / cover no-repeat,
+    #12392f;
+}
+
+.renewed-project .proposal-review-head h3 {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.4;
+  text-shadow: 0 1px 3px #102d25;
+}
+
+.renewed-project .proposal-review-head h3::before {
+  flex: none;
+  width: clamp(31px, 5vw, 42px);
+  aspect-ratio: 1;
+  background: url("/project/island/calendar.webp") center / contain no-repeat;
+  content: "";
+}
+
+.renewed-project .proposal-review-head h3 > .editorial-ink {
+  min-width: 0;
+}
+
+.renewed-project .proposal-review-head strong {
+  border: 1px solid #ffebb6;
+  box-shadow: 0 2px 0 #0e2e25;
+}
+
+.renewed-project .proposal-window {
+  border-color: #b9ab88;
+  background:
+    linear-gradient(90deg, #fbf0d9 3%, #fbf0d9ed 42%, #fbf0d9b5 76%, #fbf0d99c),
+    url("/project/island/ella-compact.webp") right 80% / cover no-repeat,
+    #fbf0d9;
+}
+
+.renewed-project .proposal-window-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  color: #244937;
+}
+
+.renewed-project .proposal-window-heading::before {
+  flex: 0 0 25px;
+  aspect-ratio: 1;
+  background: url("/project/island/tea-sprig.webp") center / contain no-repeat;
+  content: "";
+}
+
+.renewed-project .proposal-ticket-bottom {
+  background:
+    linear-gradient(90deg, #fff7e6 24%, #fff7e6e8 64%, #fff7e6c4),
+    url("/project/island/sigiriya-sunset-small.webp") right 76% / cover no-repeat,
+    #fff7e6;
+}
+
+.renewed-project .proposal-ticket-bottom .proposal-submit,
+.renewed-project .project-confirm > div > footer .project-primary:not(.meeting-delete),
+.renewed-project .meeting-response-floor .meeting-confirm-button {
+  --action-wash: #ffde92f5;
+  --action-edge: #ffde929f;
+  --action-art: url("/project/island/sigiriya-sunset-small.webp");
+  --action-icon: url("/project/island/calendar.webp");
+  --action-surface: linear-gradient(95deg, var(--action-wash) 22%, var(--action-wash) 57%, var(--action-edge)),
+    var(--action-art) right 60% / cover no-repeat, #ffde92;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid #5f542d;
+  border-radius: 9px;
+  background: var(--action-surface);
+  color: #24392c;
+  font-weight: 780;
+  text-decoration: none;
+  box-shadow: 0 2px 0 #70522c;
+}
+
+.renewed-project .meeting-response-floor .meeting-confirm-button,
+.renewed-project .project-confirm > div > footer .project-primary:not(.meeting-delete) {
+  --action-icon: url("/project/art/u04.webp");
+}
+
+.renewed-project .proposal-ticket-bottom .proposal-submit::before,
+.renewed-project .project-confirm > div > footer .project-primary:not(.meeting-delete)::before,
+.renewed-project .meeting-response-floor .meeting-confirm-button::before {
+  flex: none;
+  width: 24px;
+  aspect-ratio: 1;
+  background: var(--action-icon) center / contain no-repeat;
+  content: "";
+}
+
+.renewed-project .proposal-ticket-bottom .proposal-submit:hover:enabled,
+.renewed-project .project-confirm > div > footer .project-primary:not(.meeting-delete):hover:enabled,
+.renewed-project .meeting-response-floor .meeting-confirm-button:hover:enabled {
+  --action-wash: #ffe8b0f8;
+  --action-edge: #ffe8b0b5;
+  background: var(--action-surface);
+  color: #1c3326;
+}
+
+.renewed-project .proposal-ticket-bottom .proposal-submit:disabled,
+.renewed-project .project-confirm > div > footer .project-primary:not(.meeting-delete):disabled,
+.renewed-project .meeting-response-floor .meeting-confirm-button:disabled {
+  --action-wash: #eae7daf5;
+  --action-edge: #eae7dae4;
+  border-color: #afa994;
+  background: var(--action-surface);
+  color: #505e52;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.renewed-project .proposal-ticket-bottom .proposal-submit:disabled::before,
+.renewed-project .project-confirm > div > footer .project-primary:not(.meeting-delete):disabled::before,
+.renewed-project .meeting-response-floor .meeting-confirm-button:disabled::before {
+  filter: saturate(.35);
+  opacity: .5;
+}
+
+@media (forced-colors: active) {
+  .renewed-project .proposal-ticket-bottom .proposal-submit,
+  .renewed-project .project-confirm > div > footer .project-primary:not(.meeting-delete),
+  .renewed-project .meeting-response-floor .meeting-confirm-button {
+    border: 1px solid ButtonText;
+  }
+}

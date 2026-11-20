@@ -1,5 +1,5 @@
-import { PROJECT_ORGANIZER_NAME, type ProjectAvatar, type ProjectBoard, type ProjectPortraits, type Proposal } from "@/lib/project";
-import { COLOMBO, dateLabel, marks, timeRange, TOKYO, type Language } from "@/lib/schedule";
+import { projectMarks, PROJECT_ORGANIZER_NAME, rankProjectCandidates, type ProjectAvatar, type ProjectBoard, type ProjectPortraits, type Proposal } from "@/lib/project";
+import { COLOMBO, dateLabel, timeRange, TOKYO, type Language } from "@/lib/schedule";
 import { Ink } from "./editorial-ink";
 import "./project-recommendations.css";
 
@@ -11,18 +11,18 @@ const zones = [
 const copy = {
   ja: {
     heading: "有力候補 TOP 3",
-    rule: "○が多い順。同数の場合は×が少ない順、次いで△が多い順です。",
+    rule: "◎が多い順。同数なら○が多い順、×が少ない順、△が多い順です。",
     empty: "回答が入ると、有力な候補をここに表示します。",
-    yes: "参加可", maybe: "要相談", no: "参加不可", pending: "未回答",
+    preferred: "最優先", yes: "参加可", maybe: "要相談", no: "参加不可", pending: "未回答",
     organizer: "主催者", character: "キャラクター", unlinked: "本人未登録",
     confirm: "この候補を確定",
     count: (value: number) => `${value}人`,
   },
   en: {
     heading: "Top 3 times",
-    rule: "Ranked by most Yes responses, then fewest No responses, then most Maybe responses.",
+    rule: "Ranked by most Preferred responses, then most Yes, fewest No, and most Maybe.",
     empty: "The top times will appear here once someone responds.",
-    yes: "Yes", maybe: "Maybe", no: "No", pending: "Awaiting response",
+    preferred: "Preferred", yes: "Yes", maybe: "Maybe", no: "No", pending: "Awaiting response",
     organizer: "Organizer", character: "Character", unlinked: "Not yet linked",
     confirm: "Confirm this time",
     count: (value: number) => `${value} ${value === 1 ? "person" : "people"}`,
@@ -68,19 +68,7 @@ export function ProjectRecommendations({ slots, board, portraits, language, busy
     avatar,
     name: `${t.character} ${Number(avatar)} · ${t.unlinked}`,
   }));
-  const ranked = slots.filter(slot => slot.responses.length > 0).map(slot => {
-    const unavailable = slot.responses.filter(response => response.choice === "no");
-    return {
-      slot,
-      unavailable,
-      yes: slot.responses.filter(response => response.choice === "yes").length,
-      maybe: slot.responses.filter(response => response.choice === "maybe").length,
-      no: unavailable.length,
-      pending: Math.max(0, slot.totalRespondents - slot.responses.length),
-    };
-  }).sort((left, right) =>
-    right.yes - left.yes || left.no - right.no || right.maybe - left.maybe || left.slot.start - right.slot.start
-  ).slice(0, 3);
+  const ranked = rankProjectCandidates(slots).slice(0, 3);
 
   return <section className="project-recommendations" aria-labelledby={heading}>
     <header className="project-recommendations-header">
@@ -88,11 +76,12 @@ export function ProjectRecommendations({ slots, board, portraits, language, busy
       <p>{ranked.length ? t.rule : t.empty}</p>
     </header>
     {ranked.length > 0 && <ol className="project-recommendations-list">
-      {ranked.map(({ slot, yes, maybe, no, pending, unavailable }) => {
+      {ranked.map(({ slot, preferred, yes, maybe, no, pending, unavailable }) => {
         const totals = [
-          { key: "yes", mark: marks.yes, count: yes },
-          { key: "maybe", mark: marks.maybe, count: maybe },
-          { key: "no", mark: marks.no, count: no },
+          { key: "preferred", mark: projectMarks.preferred, count: preferred },
+          { key: "yes", mark: projectMarks.yes, count: yes },
+          { key: "maybe", mark: projectMarks.maybe, count: maybe },
+          { key: "no", mark: projectMarks.no, count: no },
           { key: "pending", mark: t.pending, count: pending },
         ] as const;
         return <li key={slot.id}>

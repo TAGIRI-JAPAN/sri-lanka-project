@@ -1,0 +1,220 @@
+.project-world-clocks.renewed-clocks .renewed-clock {
+  --clock-size: clamp(53px, 5vw, 70px);
+  --clock-hand: #312a20;
+  --clock-accent: #96452d;
+  display: grid;
+  grid-template-areas: "dial zone" "dial time" "dial date";
+  grid-template-columns: var(--clock-size) minmax(0, 1fr);
+  justify-content: start;
+  align-content: center;
+  align-items: center;
+  gap: 2px clamp(8px, 1.15vw, 15px);
+  min-width: 0;
+  padding: 10px clamp(10px, 1.5vw, 20px);
+}
+
+.project-world-clocks.renewed-clocks .renewed-clock[data-zone="lk"] {
+  --clock-hand: #1e332a;
+  --clock-accent: #175b47;
+}
+
+.project-clock-dial {
+  position: relative;
+  grid-area: dial;
+  align-self: center;
+  display: block;
+  width: var(--clock-size);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 2px 2px #241b1255);
+}
+
+.project-clock-dial img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.project-clock-hand,
+.project-clock-pin {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+}
+
+.project-clock-hand {
+  bottom: 50%;
+  left: 50%;
+  height: 25%;
+  width: 5.5%;
+  margin-inline-start: -2.75%;
+  background: var(--clock-hand);
+  box-shadow: 0 1px 1px #2c1c2373;
+  transform-origin: 50% 100%;
+}
+
+.project-clock-minute {
+  width: 3.8%;
+  height: 33%;
+  margin-inline-start: -1.9%;
+  background: var(--clock-accent);
+}
+
+.project-clock-pin {
+  top: 50%;
+  left: 50%;
+  width: 9%;
+  aspect-ratio: 1;
+  border: 1px solid #704a24;
+  background: #eebf72;
+  transform: translate(-50%, -50%);
+}
+
+.project-world-clocks.renewed-clocks .renewed-clock-zone {
+  grid-area: zone;
+  display: flex;
+  align-items: baseline;
+  gap: 2px 6px;
+  color: var(--clock-accent);
+  font-size: clamp(.875rem, 1.2vw, 1rem);
+  line-height: 1.2;
+}
+
+.project-world-clocks.renewed-clocks .renewed-clock-zone small {
+  color: inherit;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .035em;
+}
+
+.project-world-clocks.renewed-clocks .renewed-clock .project-clock-time {
+  grid-area: time;
+  display: block;
+  color: inherit;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  font-size: clamp(1.45rem, 2.5vw, 2.13rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 780;
+  letter-spacing: -.055em;
+  line-height: 1.08;
+  white-space: nowrap;
+}
+
+.project-world-clocks.renewed-clocks .renewed-clock-date {
+  grid-area: date;
+  min-width: 0;
+  font-size: .875rem;
+  line-height: 1.3;
+}
+
+.island-board-clocks .project-world-clocks.renewed-clocks {
+  grid-template-columns: auto repeat(2, minmax(0, 1fr));
+  border-color: #c2ab7a;
+  border-radius: 14px;
+  background: #fff8eb;
+  box-shadow: 0 2px 0 #a48c60;
+}
+
+.island-board-clocks .project-world-clocks .renewed-clocks-label {
+  gap: 8px;
+  color: #315444;
+}
+
+.island-board-clocks .project-world-clocks .renewed-clocks-label svg {
+  flex: none;
+  color: #88532c;
+}
+
+.island-board-clocks .project-world-clocks.renewed-clocks .renewed-clock {
+  background:
+    linear-gradient(90deg, var(--country-stock) 12%, color-mix(in srgb, var(--country-stock) 96%, transparent) 41%, color-mix(in srgb, var(--country-stock) 31%, transparent)),
+    var(--country-art) var(--country-position) / auto 100% no-repeat,
+    var(--country-stock);
+  color: #182f26;
+}
+
+.island-board-clocks .project-world-clocks.renewed-clocks :is(.renewed-clock-date, .renewed-clock-zone, .project-clock-time) {
+  justify-self: start;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--country-stock) 76%, transparent);
+}
+
+.island-board-clocks .project-world-clocks .island-clock-difference {
+  background: #f1e3c4;
+  border-radius: 0 0 13px 13px;
+  color: #3e594a;
+}
+
+.island-clock-card .project-world-clocks.renewed-clocks .renewed-clock {
+  --clock-size: clamp(46px, 4.3vw, 55px);
+  grid-template-areas: "dial zone" "dial time" "date date";
+  background:
+    linear-gradient(90deg, #123a30 5%, #123a30ed 41%, #102d24b8),
+    var(--country-art) var(--country-position) / auto 100% no-repeat,
+    #123a30;
+  color: #fffae8;
+}
+
+.island-clock-card .project-world-clocks.renewed-clocks .renewed-clock-zone {
+  color: #f4d99f;
+}
+
+.island-clock-card .project-world-clocks.renewed-clocks .renewed-clock[data-zone="jp"] .renewed-clock-zone {
+  color: #ffe5b7;
+}
+
+.island-clock-card .project-world-clocks.renewed-clocks .renewed-clock-date {
+  color: #f2e5c2;
+}
+
+@media (min-width: 920px) {
+  .island-board-clocks .project-world-clocks.renewed-clocks .renewed-clock {
+    grid-template-areas: "dial zone zone" "dial time date";
+    grid-template-columns: var(--clock-size) auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    row-gap: 3px;
+  }
+
+  .island-board-clocks .project-world-clocks .renewed-clock-date {
+    align-self: end;
+    padding-block-end: 3px;
+  }
+}
+
+@media (max-width: 740px) {
+  .island-board-clocks .project-world-clocks.renewed-clocks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .island-board-clocks .project-world-clocks .renewed-clocks-label {
+    grid-column: 1 / -1;
+    padding: 7px 11px;
+    border-bottom: 1px solid #e0cfab;
+  }
+
+  .island-board-clocks .project-world-clocks.renewed-clocks .renewed-clock[data-zone="jp"] {
+    border-inline-start: 0;
+  }
+}
+
+@media (max-width: 450px) {
+  .project-world-clocks.renewed-clocks .renewed-clock,
+  .island-clock-card .project-world-clocks.renewed-clocks .renewed-clock {
+    --clock-size: clamp(40px, 11vw, 48px);
+    grid-template-areas: "dial zone" "dial time" "date date";
+    column-gap: 7px;
+    padding: 7px 9px;
+  }
+
+  .project-world-clocks.renewed-clocks .renewed-clock .project-clock-time {
+    font-size: clamp(1.13rem, 5.25vw, 1.47rem);
+  }
+
+  .project-world-clocks.renewed-clocks .renewed-clock-zone,
+  .project-world-clocks.renewed-clocks .renewed-clock-date {
+    font-size: .8rem;
+  }
+
+  .project-world-clocks.renewed-clocks .renewed-clock-zone {
+    column-gap: 4px;
+  }
+}

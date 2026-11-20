@@ -1,0 +1,77 @@
+.renewed-project :is(.renewed-clock, .meeting-time, .confirmed-ticket-time)[data-zone="jp"],
+.renewed-project :is(.proposal-zone-headings, .project-recommendation-times) > div:first-child {
+  --country-art: url("/project/island/country-scene-jp.webp");
+  --country-stock: #fff4e5;
+  --country-edge: #e1bea1;
+  --country-position: right 51%;
+}
+
+.renewed-project :is(.renewed-clock, .meeting-time, .confirmed-ticket-time)[data-zone="lk"],
+.renewed-project :is(.proposal-zone-headings, .project-recommendation-times) > div:nth-child(2) {
+  --country-art: url("/project/island/country-scene-lk.webp");
+  --country-stock: #edf2df;
+  --country-edge: #becba6;
+  --country-position: right 53%;
+}
+
+.renewed-project .meeting-time-pair {
+  align-items: stretch;
+}
+
+.renewed-project .meeting-time-pair > .meeting-time {
+  min-height: 64px;
+  align-content: center;
+  padding: 7px clamp(7px, 1vw, 13px);
+  border: 1px solid var(--country-edge);
+  border-radius: 9px;
+}
+
+.renewed-project .proposal-studio .proposal-zone-headings > div {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+}
+
+.renewed-project :is(.meeting-time, .confirmed-ticket-time),
+.renewed-project :is(.proposal-zone-headings, .project-recommendation-times) > div {
+  background:
+    linear-gradient(90deg, var(--country-stock) 8%, color-mix(in srgb, var(--country-stock) 94%, transparent) 46%, color-mix(in srgb, var(--country-stock) 32%, transparent) 100%),
+    var(--country-art) var(--country-position) / auto 100% no-repeat,
+    var(--country-stock);
+}
+
+.renewed-project .project-recommendation-times {
+  column-gap: clamp(8px, 2vw, 15px);
+}
+
+.renewed-project .project-recommendation-times > div {
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--country-edge);
+  border-radius: 7px;
+}
+
+.renewed-project .confirmed-ticket-time + .confirmed-ticket-time {
+  border-inline-start-color: var(--country-edge);
+}
+
+.renewed-project .proposal-zone-headings > div > .editorial-ink,
+.renewed-project .meeting-zone,
+.renewed-project .meeting-time-range,
+.renewed-project .meeting-time small,
+.renewed-project .confirmed-ticket-zone,
+.renewed-project .confirmed-ticket-date,
+.renewed-project .confirmed-ticket-range,
+.renewed-project .project-recommendation-times > div > :is(span, time) {
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--country-stock) 72%, transparent);
+}
+
+@media (max-width: 540px) {
+  .renewed-project .meeting-time-pair > .meeting-time {
+    min-height: 58px;
+    padding-block: 6px;
+  }
+}

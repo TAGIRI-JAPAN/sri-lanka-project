@@ -683,7 +683,13 @@
 }
 
 .renewed-project .meeting-votes {
-  gap: 7px;
+  gap: clamp(4px, 1vw, 7px);
+}
+
+.renewed-project .meeting-sheet [data-choice="preferred"] {
+  --choice-light: #f1f6ff;
+  --choice-art: url("/project/island/priority-sigiriya.webp");
+  --choice-scene: url("/project/island/sigiriya-sunset-small.webp");
 }
 
 .renewed-project .meeting-sheet [data-choice="yes"] {
@@ -714,9 +720,9 @@
 }
 
 .renewed-project .meeting-vote {
-  min-height: 114px;
+  min-height: 108px;
   display: grid;
-  grid-template-rows: auto 51px auto;
+  grid-template-rows: auto 46px auto;
   gap: 0;
   align-content: center;
   justify-items: center;
@@ -732,8 +738,8 @@
 .renewed-project .meeting-vote::before {
   content: "";
   grid-row: 2;
-  width: min(67px, 100%);
-  height: 49px;
+  width: min(60px, 100%);
+  height: 44px;
   background: var(--choice-art) center / contain no-repeat;
   filter: drop-shadow(0 2px 1px #281c1844);
 }
@@ -762,7 +768,8 @@
 
 .renewed-project .meeting-vote-label {
   grid-row: 3;
-  font-size: .94rem;
+  max-inline-size: 100%;
+  font-size: clamp(.8rem, 1.55vw, .94rem);
   font-weight: 750;
   overflow-wrap: anywhere;
 }
@@ -1159,6 +1166,7 @@
 /* A shallow accent edge echoes the title lettering while preserving the label footprint. */
 .renewed-project .meeting-time[data-zone="jp"] { --arcade-edge: #d29973; }
 .renewed-project .meeting-time[data-zone="lk"] { --arcade-edge: #95aa65; }
+.renewed-project .meeting-vote[data-choice="preferred"] { --arcade-edge: #94aacf; }
 .renewed-project .meeting-vote[data-choice="yes"] { --arcade-edge: #92aa65; }
 .renewed-project .meeting-vote[data-choice="maybe"] { --arcade-edge: #dba748; }
 .renewed-project .meeting-vote[data-choice="no"] { --arcade-edge: #d59379; }

@@ -45,8 +45,8 @@ const steps = [
   },
   {
     key: "vote", icon: Check, scene: "colombo.webp", sticker: "calendar.webp",
-    ja: ["候補ごとに出欠を回答", "両国の時刻を見ながら、○・△・×で回答。"],
-    en: ["Mark your availability", "Compare both local times and answer yes, maybe, or no."],
+    ja: ["候補ごとに出欠を回答", "両国の時刻を見ながら、◎・○・△・×で回答。"],
+    en: ["Mark your availability", "Compare both local times and choose preferred, available, maybe, or unavailable."],
   },
 ] as const;
 

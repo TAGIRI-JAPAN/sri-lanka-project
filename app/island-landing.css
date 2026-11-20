@@ -130,7 +130,7 @@ body:has(.renewed-project) { background: #faf2df; }
 }
 .renewed-project :is(.island-header, .island-hero) :focus-visible { outline-color: #fff4bf; }
 
-.renewed-landing { gap: 0; }
+.renewed-landing { gap: clamp(18px, 3.2vw, 32px); }
 .island-hero {
   isolation: isolate;
   position: relative;
@@ -227,7 +227,6 @@ body:has(.renewed-project) { background: #faf2df; }
   grid-template-columns: minmax(0, 1.92fr) minmax(0, 1fr);
   align-items: stretch;
   gap: 18px;
-  margin: -31px clamp(17px, 3.05vw, 45px) 0;
 }
 .island-landing-actions .renewed-entry {
   position: relative;
@@ -331,6 +330,7 @@ body:has(.renewed-project) { background: #faf2df; }
   padding: 12px clamp(14px, 1.75vw, 24px);
 }
 .island-board-clocks { margin: 0 0 21px; }
+.island-board-clocks-after-cast { margin-block-start: 21px; }
 .island-board-clocks .renewed-clocks { border-color: #d7cba9; border-radius: 14px; background: #fff8e8; grid-template-columns: auto repeat(2,minmax(0, 1fr)); }
 .island-board-clocks .renewed-clock { border-color: #dfd3b4; }
 .island-board-clocks .island-clock-difference {
@@ -420,7 +420,7 @@ body:has(.renewed-project) { background: #faf2df; }
 
 @media (max-width: 920px) {
   .island-hero-content { width: min(63%, 565px); }
-  .island-landing-actions { margin-inline: 16px; gap: 13px; }
+  .island-landing-actions { gap: 13px; }
   .island-entry-sticker { top: 66px; right: 16px; }
 }
 @media (max-width: 740px) {
@@ -428,7 +428,7 @@ body:has(.renewed-project) { background: #faf2df; }
   .island-header-inner { min-height: 66px; }
   .island-hero { min-height: 400px; border-radius: 21px; }
   .island-hero-content { width: min(76%, 495px); }
-  .island-landing-actions { grid-template-columns: 1fr; gap: 15px; margin: -23px 13px 0; }
+  .island-landing-actions { grid-template-columns: 1fr; gap: 15px; }
   .island-entry-sticker { width: 73px; }
   .island-clock-card .renewed-clocks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .island-clock-card .renewed-clocks-label { padding: 12px 16px; }
@@ -457,7 +457,6 @@ body:has(.renewed-project) { background: #faf2df; }
   .island-hero-place { right: 10px; bottom: 33px; font-size: .73rem; padding: 4px 6px; }
   .island-place-desktop { display: none; }
   .island-place-mobile { display: inline; }
-  .island-landing-actions { margin-inline: 7px; }
   .island-guide > ol { grid-template-columns: 1fr; }
   .island-step { display: grid; grid-template-columns: minmax(100px, 34%) minmax(0, 1fr); align-items: stretch; }
   .island-step-art { height: auto; min-height: 90px; }

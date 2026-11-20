@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
-  AVATAR_IDS, customPortrait, expandCandidateWindows, MAX_PROJECT_SLOTS, PROJECT_COMPLETION_EMAIL, PROJECT_ORGANIZER_NAME,
-  type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard as Board, type ProjectPortraits, type Proposal,
+  AVATAR_IDS, customPortrait, expandCandidateWindows, MAX_PROJECT_SLOTS, projectChoices, projectMarks, PROJECT_ORGANIZER_NAME,
+  type CandidateWindow, type ProjectAvatar, type ProjectAvatarStyle, type ProjectBoard as Board, type ProjectChoice, type ProjectPortraits, type Proposal,
 } from "@/lib/project";
-import { choices, COLOMBO, dateLabel, DURATIONS, marks, MAX_NAME_LENGTH, timeLabel, TOKYO, uuid, wallTime, zoneName, type Choice, type Language } from "@/lib/schedule";
+import { COLOMBO, dateLabel, DURATIONS, MAX_NAME_LENGTH, timeLabel, TOKYO, uuid, wallTime, zoneName, type Language } from "@/lib/schedule";
 import { ArrowDown, ArrowUp, CalendarPlus, ChevronRight, Link2 } from "lucide-react";
 import { Ink } from "./editorial-ink";
 import { IslandFooter, IslandGuide, IslandHero } from "./island-entry";
@@ -22,6 +21,8 @@ import "./new-ballot.css";
 import "./island-landing.css";
 import "./island-workspace.css";
 import "./project-meetings.css";
+import "./project-country-scenes.css";
+import "./project-proposal-scenes.css";
 
 const ZONES = [TOKYO, COLOMBO] as const;
 const WIDE_PORTRAITS = new Set<ProjectAvatar>(["01", "04", "05", "06"]);
@@ -30,7 +31,6 @@ type MeetingFilter = "all" | "mine" | "confirmed";
 type DraftWindow = CandidateWindow & { key: number };
 type PortraitSets = Partial<Record<ProjectAvatarStyle, ProjectPortraits>>;
 type Feedback = { message: Message; error?: boolean };
-type InviteCopy = { id: string; text: string; copied: boolean };
 type MeetingDialog = { action: "confirm" | "delete"; item: Proposal };
 type ProposalInput = { title: string; meetingUrl: string; windows: DraftWindow[]; zone: string; duration: number; respondentAvatars: ProjectAvatar[] };
 
@@ -39,7 +39,7 @@ const copy = {
     access: "参加リンクから開く", inviteRequired: "主催者から届いた自分専用の参加リンクを開いてください。",
     signIn: "主催者としてログイン", loading: "読み込み中…", refresh: "再読み込み",
     unavailable: "読み込みに失敗しました。もう一度お試しください。", saving: "保存中…",
-    choose: "キャラクターを選択", pick: "この回答者で進む", pickAndVote: "この回答者で回答", portrait: "回答者", name: "表示する名前",
+    choose: "キャラクターを選択", pick: "このキャラクターで回答", portrait: "回答者", name: "表示する名前",
     chooseHint: "この参加リンクで使う自分のアイコンを選んでください。",
     taken: "使用中", selected: "選択中", unnamed: "名前を入力", portraitFailed: "回答者の画像を読み込めませんでした。",
     avatarTaken: "その画像は別の人が選びました。ほかの画像を選んでください。",
@@ -48,7 +48,7 @@ const copy = {
     reply: "候補日時を見る", propose: "候補日時を追加", mode: "操作を選ぶ", candidates: "候補日時",
     noProposals: "候補日時がまだありません。", meeting: "打ち合わせ", proposer: "提案者",
     open: "回答受付中", closed: "受付終了", confirmed: "日程が決まりました", finalizedSlot: "確定した日時", complete: "全員回答済み",
-    yes: "参加可", maybe: "要相談", no: "参加不可", vote: "出欠を入力", editVote: "回答を変更",
+    preferred: "最優先", yes: "参加可", maybe: "要相談", no: "参加不可", vote: "出欠を入力", editVote: "回答を変更",
     pending: "未回答", voted: "回答を受け付けました", votedState: "回答済み", review: "回答を確認", waiting: "未回答",
     ineligible: "この候補の回答対象外です。", confirm: "日程を確定", reopen: "回答受付を再開",
     confirmPrompt: "この枠を日程に確定し、この打ち合わせの回答受付を終了します。", confirmedSaved: "日程を確定しました。", reopened: "回答受付を再開しました。",
@@ -70,10 +70,7 @@ const copy = {
     respondents: "回答してほしい人", allMembers: "全員", audienceHint: "回答してほしい人のアイコンをタップ。本人の登録前でも選べます。",
     audience: "回答対象", unregistered: "本人未登録", self: "自分", personUnit: "人",
     post: "日程を提案", posted: "候補日時をまとめて追加しました。",
-    notification: "全員の回答がそろったら通知する宛先",
-    manage: "参加メンバー・招待リンク", addName: "追加する人の名前", add: "追加", added: "メンバーを追加しました。",
-    invite: "参加リンクをコピー", copied: "コピーしました", manualCopy: "下のリンクをコピーしてください。",
-    archive: "これまでの日程調整", backToEntry: "入力に戻る", duplicateMember: "同じ名前のメンバーがいます。",
+    backToEntry: "入力に戻る",
     invalid: "入力内容を確認してください。", invalidTime: "候補の日付・時刻を確認してください。",
     shortWindow: "打ち合わせ時間が収まるよう、候補の時間帯を広げてください。", tooManySlots: `一度に追加できるのは${MAX_PROJECT_SLOTS}枠までです。`,
     forbidden: "この操作は提案者か主催者が行えます。", missing: "候補日時が見つかりません。",
@@ -82,7 +79,7 @@ const copy = {
     access: "Open your invitation", inviteRequired: "Use the personal invitation link sent by the organizer.",
     signIn: "Sign in as organizer", loading: "Loading…", refresh: "Reload",
     unavailable: "Unable to load. Please try again.", saving: "Saving…",
-    choose: "Choose a character", pick: "Continue with this portrait", pickAndVote: "Respond with this portrait", portrait: "Respondent", name: "Display name",
+    choose: "Choose a character", pick: "Respond with this character", portrait: "Respondent", name: "Display name",
     chooseHint: "Choose your own portrait for this invitation link.",
     taken: "In use", selected: "Selected", unnamed: "Enter a name", portraitFailed: "The portraits could not load.",
     avatarTaken: "Someone else chose that portrait. Please choose another one.",
@@ -91,7 +88,7 @@ const copy = {
     reply: "View proposed times", propose: "Add a proposed time", mode: "Choose an action", candidates: "Proposed times",
     noProposals: "No times have been proposed yet.", meeting: "Meeting", proposer: "Proposed by",
     open: "Accepting responses", closed: "Responses closed", confirmed: "Time confirmed", finalizedSlot: "Confirmed time", complete: "Everyone has responded",
-    yes: "Available", maybe: "Maybe", no: "Unavailable", vote: "Add availability", editVote: "Edit response",
+    preferred: "Preferred", yes: "Available", maybe: "Maybe", no: "Unavailable", vote: "Add availability", editVote: "Edit response",
     pending: "No response yet", voted: "Your response was saved.", votedState: "Responded", review: "Check responses", waiting: "Awaiting response",
     ineligible: "You are not on the response list for this time.", confirm: "Confirm this time", reopen: "Reopen responses",
     confirmPrompt: "Confirm this slot and close responses for this meeting.", confirmedSaved: "The time was confirmed.", reopened: "Responses have reopened.",
@@ -113,10 +110,7 @@ const copy = {
     respondents: "Who should respond?", allMembers: "Everyone", audienceHint: "Select portraits. You can include people before they join.",
     audience: "Requested respondents", unregistered: "Not yet linked", self: "You", personUnit: " selected",
     post: "Post proposed times", posted: "The proposed times were added.",
-    notification: "Notify this address when everyone has responded",
-    manage: "Participants and invitations", addName: "Name of the new participant", add: "Add", added: "The participant was added.",
-    invite: "Copy invitation", copied: "Copied", manualCopy: "Copy the link below.",
-    archive: "Previous schedules", backToEntry: "Return to the form", duplicateMember: "A participant already has that name.",
+    backToEntry: "Return to the form",
     invalid: "Check your entries and try again.", invalidTime: "Check the dates and times.",
     shortWindow: "Extend the window to fit the meeting length.", tooManySlots: `You can propose up to ${MAX_PROJECT_SLOTS} slots at once.`,
     forbidden: "Only the proposer or organizer can do this.", missing: "The proposed time could not be found.",
@@ -228,8 +222,8 @@ function ProjectTimes({ start, duration, language, primary = TOKYO, grouped = fa
 type ReplyReceipt = { image: string | undefined; wide: boolean; name: string };
 
 function ProposalSlot({ item, board, sets, language, primary, grouped = true, pending, feedback, receipt, busy, onVote, onConfirm }: {
-  item: Proposal; board: Board; sets: PortraitSets; language: Language; primary: string; grouped?: boolean; pending: Choice | undefined;
-  feedback: Feedback | undefined; receipt?: ReplyReceipt; busy: boolean; onVote: (choice: Choice) => void; onConfirm: () => void;
+  item: Proposal; board: Board; sets: PortraitSets; language: Language; primary: string; grouped?: boolean; pending: ProjectChoice | undefined;
+  feedback: Feedback | undefined; receipt?: ReplyReceipt; busy: boolean; onVote: (choice: ProjectChoice) => void; onConfirm: () => void;
 }) {
   const t = copy[language];
   const ownChoice = pending ?? item.ownChoice;
@@ -243,20 +237,20 @@ function ProposalSlot({ item, board, sets, language, primary, grouped = true, pe
     <ProjectTimes start={item.start} duration={item.duration} language={language} primary={primary} grouped={grouped} />
     {showResponse && <div className="meeting-responses">
       {canVote && <div className="meeting-votes" role="group" aria-label={t.vote}>
-        {choices.map(choice => <button type="button" className="meeting-vote" key={choice} data-choice={choice}
-          aria-pressed={ownChoice === choice} aria-label={marks[choice] + " " + t[choice]}
+        {projectChoices.map(choice => <button type="button" className="meeting-vote" key={choice} data-choice={choice}
+          aria-pressed={ownChoice === choice} aria-label={projectMarks[choice] + " " + t[choice]}
           disabled={Boolean(pending) || busy} onClick={() => onVote(choice)}>
-          <span className="meeting-vote-mark" aria-hidden="true"><Ink text={marks[choice]} /></span>
+          <span className="meeting-vote-mark" aria-hidden="true"><Ink text={projectMarks[choice]} /></span>
           <span className="meeting-vote-label"><Ink text={t[choice]} /></span>
         </button>)}
       </div>}
       <div className="meeting-response-floor">
         <div className="meeting-counts" aria-label={t.review}>
-          {choices.map(choice => {
+          {projectChoices.map(choice => {
             const people = item.responses.filter(person => person.choice === choice);
             if (!people.length) return null;
             return <div className="meeting-count" key={choice} data-choice={choice} role="group" aria-label={t[choice] + " " + people.length}>
-              <b aria-hidden="true"><Ink text={marks[choice] + " " + people.length} /></b>
+              <b aria-hidden="true"><Ink text={projectMarks[choice]} /> {people.length}</b>
               <ul>{people.map(person => <li key={person.id}>
                 <Avatar src={photo(sets, person.avatar)} name={localName(person.name, language)}
                   own={person.id === board.viewerId} showName={Boolean(person.avatar && customPortrait(person.avatar))} />
@@ -288,9 +282,9 @@ function ProposalSlot({ item, board, sets, language, primary, grouped = true, pe
 }
 
 function MeetingCard({ slots, board, sets, language, pending, feedback, busy, revealed, onVote, onConfirm, onEdit, onDelete }: {
-  slots: Proposal[]; board: Board; sets: PortraitSets; language: Language; pending: Record<string, Choice>;
+  slots: Proposal[]; board: Board; sets: PortraitSets; language: Language; pending: Record<string, ProjectChoice>;
   feedback: Record<string, Feedback>; busy: boolean; revealed: string | null;
-  onVote: (slot: Proposal, choice: Choice) => void; onConfirm: (slot: Proposal) => void;
+  onVote: (slot: Proposal, choice: ProjectChoice) => void; onConfirm: (slot: Proposal) => void;
   onEdit: (slots: Proposal[]) => void; onDelete: (meeting: Proposal) => void;
 }) {
   const t = copy[language];
@@ -396,7 +390,6 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
         {japanese ? <Ink text={t.nextUnanswered} /> : t.nextUnanswered}<ArrowDown size={15} aria-hidden="true" />
       </button>
     </div>}
-    {personalComplete && <ProjectResponseComplete language={language} animate={Boolean(lastReply)} />}
     {personalComplete && showUnanswered && <div className="meeting-unanswered-tools">
       <button type="button" onClick={() => setOnlyUnanswered(false)}>{t.allCandidates}</button>
     </div>}
@@ -420,6 +413,7 @@ function MeetingCard({ slots, board, sets, language, pending, feedback, busy, re
       <summary><Ink text={japanese ? "候補ごとの回答を確認" : "Review responses for each time"} /></summary>
       {dateSections}
     </details> : dateSections}
+    {personalComplete && <ProjectResponseComplete language={language} />}
   </article>;
 }
 
@@ -446,7 +440,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const [sets, setSets] = useState<PortraitSets>({});
   const [portraitErrors, setPortraitErrors] = useState<Partial<Record<ProjectAvatarStyle, boolean>>>({});
   const [portraitRetry, setPortraitRetry] = useState(0);
-  const [pending, setPending] = useState<Record<string, Choice>>({});
+  const [pending, setPending] = useState<Record<string, ProjectChoice>>({});
   const [voteFeedback, setVoteFeedback] = useState<Record<string, Feedback>>({});
   const [revealed, setRevealed] = useState<string | null>(null);
   const [linkedMeeting, setLinkedMeeting] = useState<string | null>(null);
@@ -457,8 +451,6 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const [title, setTitle] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [respondentAvatars, setRespondentAvatars] = useState<ProjectAvatar[]>([]);
-  const [memberName, setMemberName] = useState("");
-  const [inviteCopy, setInviteCopy] = useState<InviteCopy | null>(null);
   const [dialog, setDialog] = useState<MeetingDialog | null>(null);
   const [editing, setEditing] = useState<{ item: Proposal; saved: ProposalInput; confirmed?: Proposal } | null>(null);
 
@@ -469,6 +461,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const nextWindowKey = useRef(1);
   const content = useRef<HTMLElement>(null);
   const entry = useRef<HTMLElement>(null);
+  const casting = useRef<HTMLElement>(null);
   const confirmation = useRef<HTMLDialogElement>(null);
   const newProposalDraft = useRef<ProposalInput | null>(null);
   const t = copy[language];
@@ -547,7 +540,6 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     setWindows([{ key: nextWindowKey.current++, date: wallTime(Date.now(), basis).slice(0, 10), from: "", to: "" }]);
     newProposalDraft.current = null;
     setEditing(null);
-    setInviteCopy(null);
     setDialog(null);
     confirmation.current?.close();
     try {
@@ -612,6 +604,12 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   }, [signedIn, mode, chooseRespondent, linkedMeeting]);
 
   useEffect(() => {
+    if (!chooseRespondent) return;
+    casting.current?.focus({ preventScroll: true });
+    if (editingRespondent) casting.current?.scrollIntoView({ block: "start" });
+  }, [chooseRespondent, editingRespondent]);
+
+  useEffect(() => {
     if (!activeMeetingId && selectedMeetingId) setActiveMeetingId(selectedMeetingId);
   }, [activeMeetingId, selectedMeetingId]);
 
@@ -642,7 +640,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     }
   }
 
-  async function vote(item: Proposal, choice: Choice) {
+  async function vote(item: Proposal, choice: ProjectChoice) {
     if (!board || !item.eligible || item.meetingClosed || item.ownChoice === choice || votesInFlight.current.has(item.id)) return;
     const session = authRevision.current;
     votesInFlight.current.add(item.id);
@@ -824,21 +822,6 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     }
   }
 
-  async function addMember(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (await perform({ action: "member", name: memberName }, "added")) setMemberName("");
-  }
-
-  async function copyInvite(person: Board["members"][number]) {
-    const text = new URL("/", location.origin).href + "#member=" + person.token;
-    try {
-      await navigator.clipboard.writeText(text);
-      setInviteCopy({ id: person.id, text, copied: true });
-    } catch {
-      setInviteCopy({ id: person.id, text, copied: false });
-    }
-  }
-
   function openConfirm(item: Proposal) {
     if (item.confirmed) {
       void perform({ action: "reopen", id: item.id }, "reopened");
@@ -876,25 +859,24 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     }} />
     <main className="project-shell">
       {!board ? <div className="renewed-landing">
-        <IslandHero language={language} onStart={() => {
-          entry.current?.focus({ preventScroll: true });
-          entry.current?.scrollIntoView({ block: "start" });
-        }} />
         <div className="island-landing-actions">
           <section className="renewed-entry" ref={entry} tabIndex={-1} aria-labelledby="sl-entry-title"
             aria-busy={loading || undefined}>
             {!loading && feedback?.message === "inviteRequired" &&
               <img className="island-entry-sticker" src="/project/island/envelope.webp" alt="" width={112} height={112} />}
             <div className="renewed-entry-content">
-              {loading ? <h2 id="sl-entry-title" role="status"><Ink text={t.loading} /></h2>
+              {loading ? <>
+                  <h2 id="sl-entry-title"><Ink text={t.choose} /></h2>
+                  <p role="status"><Ink text={t.loading} /></p>
+                </>
                 : feedback?.message === "inviteRequired" ? <>
                   <div className="renewed-roles" role="group" aria-label={language === "ja" ? "参加方法" : "Choose your role"}>
                     <button type="button" aria-pressed={entryRole === "respondent"} onClick={() => setEntryRole("respondent")}><Link2 size={17} aria-hidden="true" /><Ink text={language === "ja" ? "参加する" : "I’m invited"} /></button>
                     <button type="button" aria-pressed={entryRole === "organizer"} onClick={() => setEntryRole("organizer")}><CalendarPlus size={17} aria-hidden="true" /><Ink text={language === "ja" ? "主催する" : "I’m organizing"} /></button>
                   </div>
                   {entryRole === "respondent" ? <>
-                    <h2 id="sl-entry-title"><Ink text={language === "ja" ? "候補日時に回答" : "Respond to proposed times"} /></h2>
-                    <p><Ink text={language === "ja" ? "主催者から届いた参加リンクを貼り付けてください。" : "Paste the personal link you received from your organizer."} /></p>
+                    <h2 id="sl-entry-title"><Ink text={t.choose} /></h2>
+                    <p><Ink text={language === "ja" ? "主催者から届いた参加リンクを開いて、キャラクターを選びます。" : "Open your personal invitation to choose a character."} /></p>
                     <form className="renewed-invite" onSubmit={event => {
                       event.preventDefault();
                       const field = event.currentTarget.querySelector("input");
@@ -939,12 +921,18 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                 </>}
             </div>
           </section>
-          <div className="island-clock-card"><ProjectClocks language={language} /></div>
+          {!loading && <div className="island-clock-card"><ProjectClocks language={language} /></div>}
         </div>
-        <IslandGuide language={language} />
+        {!loading && <>
+          <IslandHero language={language} onStart={() => {
+            entry.current?.focus({ preventScroll: true });
+            entry.current?.scrollIntoView({ block: "start" });
+          }} />
+          <IslandGuide language={language} />
+        </>}
       </div> : <>
-        <div className="island-board-clocks"><ProjectClocks language={language} /></div>
-        {chooseRespondent ? <section className="project-identify sl-casting" aria-labelledby="project-choose-respondent">
+        {!chooseRespondent && <div className="island-board-clocks"><ProjectClocks language={language} /></div>}
+        {chooseRespondent ? <section className="project-identify sl-casting" ref={casting} tabIndex={-1} aria-labelledby="project-choose-respondent">
           <header className="sl-casting-heading">
             <div className="schedule-form-heading">
               <h2 id="project-choose-respondent"><Ink text={t.choose} /></h2>
@@ -989,7 +977,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
                   setInitials(true);
                 }}><Ink text={t.useInitial} /></button> :
                   <button className="project-primary" type="submit" disabled={!chosen || busy || selectedTaken || (requiresName && !displayName.trim())}>
-                    <Ink text={busy ? t.saving : mode === "reply" ? t.pickAndVote : t.pick} />
+                    <Ink text={busy ? t.saving : t.pick} />
                   </button>}
                 {editingRespondent && <button className="project-secondary" type="button" disabled={busy} onClick={() => {
                   setEditingRespondent(false);
@@ -1198,28 +1186,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
             </form>
           </section>}
         </>}
-        {board.organizer && <details className="project-members">
-          <summary><img src="/project/art/u06.webp" width={24} height={24} alt="" /><Ink text={t.manage} /></summary>
-          <p className="project-notification">
-            <img src="/project/art/u06.webp" width={28} height={28} alt="" />
-            <span><Ink text={t.notification} /><strong><Ink text={PROJECT_COMPLETION_EMAIL} /></strong></span>
-          </p>
-          <form onSubmit={addMember}>
-            <Field label={<Ink text={t.addName} />}><input value={memberName} maxLength={MAX_NAME_LENGTH} required onChange={event => setMemberName(event.target.value)} /></Field>
-            <button type="submit" className="project-secondary" disabled={busy}><Ink text={t.add} /></button>
-          </form>
-          <ul>{board.members.map(person => <li key={person.id}>
-            <strong><Ink text={person.name} /></strong>
-            <button className="project-secondary" type="button" aria-label={person.name + " · " + t.invite} onClick={() => { void copyInvite(person); }}>
-              <Ink text={t.invite} />
-            </button>
-            {inviteCopy?.id === person.id && <div className="project-invite-copy">
-              <span role="status"><Ink text={inviteCopy.copied ? t.copied : t.manualCopy} /></span>
-              {!inviteCopy.copied && <input aria-label={t.invite} readOnly value={inviteCopy.text} onFocus={event => event.target.select()} />}
-            </div>}
-          </li>)}</ul>
-          <Link href="/?view=archive" prefetch={false} className="project-archive"> <Ink text={t.archive} /></Link>
-        </details>}
+        {chooseRespondent && <div className="island-board-clocks island-board-clocks-after-cast"><ProjectClocks language={language} /></div>}
       </>}
 
       <dialog className="project-confirm" ref={confirmation} aria-labelledby="project-confirm-title"
