@@ -68,6 +68,7 @@ export type Proposal = {
   confirmed: boolean;
   meetingClosed: boolean;
   canManage: boolean;
+  createdByViewer?: boolean;
   eligible: boolean;
   totalRespondents: number;
   ownChoice: ProjectChoice | null;
