@@ -45,13 +45,13 @@ const copy = {
     taken: "使用中", selected: "選択中", unnamed: "名前を入力", portraitFailed: "回答者の画像を読み込めませんでした。",
     avatarTaken: "その画像は別の人が選びました。ほかの画像を選んでください。",
     full: "すべての画像が使用中です。イニシャルで回答できます。", useInitial: "イニシャルで進む",
-    identity: "回答者", change: "回答者を変更", cancel: "戻る", organizer: "主催者", profileSaved: "回答者を設定しました。",
+    identity: "回答者", change: "キャラクターを変更", cancel: "戻る", organizer: "主催者", profileSaved: "回答者を設定しました。",
     reply: "候補日時を見る", propose: "候補日時を追加", mode: "操作を選ぶ", candidates: "候補日時",
     noProposals: "候補日時がまだありません。", meeting: "打ち合わせ", proposer: "提案者",
     open: "回答受付中", closed: "受付終了", confirmed: "日程が決まりました", finalizedSlot: "確定した日時", complete: "全員回答済み",
     preferred: "最優先", yes: "参加可", maybe: "要相談", no: "参加不可", vote: "出欠を入力", editVote: "回答を変更",
     pending: "未回答", voted: "回答を受け付けました", votedState: "回答済み", review: "回答を確認", waiting: "未回答",
-    ineligible: "この候補の回答対象外です。", confirm: "日程を確定", reopen: "回答受付を再開",
+    ineligible: "この候補の回答対象外です。", seatTaken: "この打ち合わせの回答枠が埋まりました。", confirm: "日程を確定", reopen: "回答受付を再開",
     confirmPrompt: "この枠を日程に確定し、この打ち合わせの回答受付を終了します。", confirmedSaved: "日程を確定しました。", reopened: "回答受付を再開しました。",
     editMeeting: "編集", deleteMeeting: "削除", editHeading: "日程提案を編集",
     deleteHeading: "打ち合わせを削除", deletePrompt: "この打ち合わせの候補日時と回答がすべて削除されます。",
@@ -68,7 +68,7 @@ const copy = {
     window: "候補の時間帯", addWindow: "候補の日・時間帯を追加", removeWindow: "削除",
     windowHelp: "終了時刻を入れると、その時間帯を打ち合わせ時間ごとの枠に分けます。開始時刻だけなら、その時刻から1枠作ります。",
     converted: "回答枠のプレビュー", slotUnit: "枠", progress: "回答状況", personalProgress: "あなたの回答", teamProgress: "全枠に回答した人",
-    respondents: "回答してほしい人", allMembers: "全員", audienceHint: "回答してほしい人のアイコンをタップ。本人の登録前でも選べます。",
+    respondents: "回答してほしい人", allMembers: "全員", audienceHint: "回答者のアイコンをタップ。空いている枠にはゲストが回答できます。",
     audience: "回答対象", unregistered: "本人未登録", self: "自分", personUnit: "人",
     post: "日程を提案", posted: "候補日時をまとめて追加しました。",
     backToEntry: "入力に戻る",
@@ -85,13 +85,13 @@ const copy = {
     taken: "In use", selected: "Selected", unnamed: "Enter a name", portraitFailed: "The portraits could not load.",
     avatarTaken: "Someone else chose that portrait. Please choose another one.",
     full: "All portraits are in use. You can respond with your initials.", useInitial: "Continue with initials",
-    identity: "Responding as", change: "Change respondent", cancel: "Go back", organizer: "Organizer", profileSaved: "Respondent saved.",
+    identity: "Responding as", change: "Change character", cancel: "Go back", organizer: "Organizer", profileSaved: "Respondent saved.",
     reply: "View proposed times", propose: "Add a proposed time", mode: "Choose an action", candidates: "Proposed times",
     noProposals: "No times have been proposed yet.", meeting: "Meeting", proposer: "Proposed by",
     open: "Accepting responses", closed: "Responses closed", confirmed: "Time confirmed", finalizedSlot: "Confirmed time", complete: "Everyone has responded",
     preferred: "Preferred", yes: "Available", maybe: "Maybe", no: "Unavailable", vote: "Add availability", editVote: "Edit response",
     pending: "No response yet", voted: "Your response was saved.", votedState: "Responded", review: "Check responses", waiting: "Awaiting response",
-    ineligible: "You are not on the response list for this time.", confirm: "Confirm this time", reopen: "Reopen responses",
+    ineligible: "You are not on the response list for this time.", seatTaken: "All response places for this meeting are filled.", confirm: "Confirm this time", reopen: "Reopen responses",
     confirmPrompt: "Confirm this slot and close responses for this meeting.", confirmedSaved: "The time was confirmed.", reopened: "Responses have reopened.",
     editMeeting: "Edit", deleteMeeting: "Delete", editHeading: "Edit proposed times",
     deleteHeading: "Delete meeting", deletePrompt: "This permanently deletes all proposed times and responses for this meeting.",
@@ -108,7 +108,7 @@ const copy = {
     window: "Candidate time windows", addWindow: "Add a date or time window", removeWindow: "Remove",
     windowHelp: "Add an end time to divide the window into meeting-length slots. A start time by itself creates a single slot.",
     converted: "Slot preview", slotUnit: "slots", progress: "Response status", personalProgress: "Your answers", teamProgress: "Respondents who answered every slot",
-    respondents: "Who should respond?", allMembers: "Everyone", audienceHint: "Select portraits. You can include people before they join.",
+    respondents: "Who should respond?", allMembers: "Everyone", audienceHint: "Select respondents by portrait. Guests can fill unassigned places.",
     audience: "Requested respondents", unregistered: "Not yet linked", self: "You", personUnit: " selected",
     post: "Post proposed times", posted: "The proposed times were added.",
     backToEntry: "Return to the form",
@@ -468,14 +468,15 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
   const profile = board?.profile;
   const signedIn = Boolean(board);
   const publicChooser = !board && guestEntry !== null;
+  const guestPicker = publicChooser || board?.guest === true;
   const avatarChoices = publicChooser ? guestEntry.availableAvatars : AVATAR_IDS;
   const publicPortraits = publicChooser && avatarChoices.length > 0;
-  const allTaken = board?.takenAvatars.length === AVATAR_IDS.length;
+  const allTaken = !guestPicker && board?.takenAvatars.length === AVATAR_IDS.length;
   const chooseRespondent = publicChooser || (signedIn && (editingRespondent || (!profile && !initials)));
   const ownName = localName(profile?.displayName ?? board?.memberName ?? t.organizer, language);
   const activePortraits = sets.kirie;
-  const selectedTaken = Boolean(chosen && (board?.takenAvatars.includes(chosen) || (publicChooser && !avatarChoices.includes(chosen))));
-  const requiresName = Boolean(board && chosen && customPortrait(chosen));
+  const selectedTaken = Boolean(chosen && !guestPicker && board?.takenAvatars.includes(chosen));
+  const requiresName = Boolean(chosen && !guestPicker && customPortrait(chosen));
   const readyWindows = windows.filter(window => window.date && window.from);
   const preview = readyWindows.length ? expandCandidateWindows(readyWindows, zone, duration) : undefined;
   const meetings = new Map<string, Proposal[]>();
@@ -550,7 +551,11 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     setDialog(null);
     confirmation.current?.close();
     try {
-      await refresh();
+      const current = await refresh();
+      if (session === authRevision.current && current.guest && current.profile) {
+        setChosen(current.profile.avatar);
+        setEditingRespondent(true);
+      }
     } catch (error) {
       if (session === authRevision.current && (error as Error).message === "inviteRequired" && !managing) {
         const available = await boardRequest<GuestEntry>("", undefined, "/api/project?join=1").catch(() => null);
@@ -683,7 +688,9 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
       await refresh().catch(() => {});
     } catch (error) {
       if (authRevision.current !== session) return;
-      setVoteFeedback(old => ({ ...old, [item.id]: { message: (error as Error).message as Message, error: true } }));
+      const message = (error as Error).message as Message;
+      if (message === "seatTaken") setFeedback({ message, error: true });
+      else setVoteFeedback(old => ({ ...old, [item.id]: { message, error: true } }));
       void refresh().catch(() => {});
     } finally {
       if (authRevision.current === session) {
@@ -790,17 +797,18 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     event.preventDefault();
     if (!chosen || selectedTaken || (requiresName && !displayName.trim())) return;
     const avatarStyle = chosen === "09" ? "wide" : "kirie";
+    const name = guestPicker ? `${t.character} ${Number(chosen)}` : displayName;
     if (publicChooser) {
       const session = authRevision.current;
-      const result = await perform({ action: "join", avatar: chosen, avatarStyle, name: `${t.character} ${Number(chosen)}` }, "profileSaved");
+      const result = await perform({ action: "join", avatar: chosen, avatarStyle, name }, "profileSaved");
       if (!result && session === authRevision.current) {
         const available = await boardRequest<GuestEntry>("", undefined, "/api/project?join=1").catch(() => null);
         if (session === authRevision.current && available) setGuestEntry(available);
       }
       return;
     }
-    if (await perform({ action: "profile", avatar: chosen, avatarStyle, name: displayName }, "profileSaved")) {
-      setBoard(previous => previous ? {
+    if (await perform({ action: "profile", avatar: chosen, avatarStyle, name }, "profileSaved")) {
+      setBoard(previous => previous && !previous.guest ? {
         ...previous,
         profile: { avatar: chosen, avatarStyle, displayName: requiresName ? displayName.trim() : null },
       } : previous);
@@ -882,7 +890,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
     }} />
     <main className="project-shell">
       {chooseRespondent ? <>
-        <section className="project-identify sl-casting" data-public={publicChooser || undefined}
+        <section className="project-identify sl-casting" data-public={guestPicker || undefined}
           ref={casting} tabIndex={-1} aria-labelledby="project-choose-respondent">
           <header className="sl-casting-heading">
             <div className="schedule-form-heading">
@@ -896,9 +904,9 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
               {avatarChoices.map(id => {
                 const portrait = activePortraits[id];
                 if (!portrait) return null;
-                const taken = board?.takenAvatars.includes(id) ?? false;
+                const taken = !guestPicker && Boolean(board?.takenAvatars.includes(id));
                 const selected = !taken && chosen === id;
-                const detail = taken ? t.taken : selected ? t.selected : !publicChooser && customPortrait(id) ? t.unnamed : "";
+                const detail = taken ? t.taken : selected ? t.selected : !guestPicker && customPortrait(id) ? t.unnamed : "";
                 return <button className="project-portrait" type="button" key={id} disabled={taken || busy} data-taken={taken || undefined}
                   aria-label={t.character + " " + Number(id) + (detail ? " · " + detail : "")} aria-pressed={selected} data-portrait-id={id}
                   onClick={() => {
@@ -917,7 +925,7 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
             <div className="sl-casting-confirm">
               <div className="sl-casting-pass" data-selected={Boolean(chosen && !selectedTaken) || undefined}>
                 {chosen && !selectedTaken && activePortraits && <img className="sl-selected-photo" src={activePortraits[chosen]} alt="" width={200} height={200} />}
-                <div aria-live="polite"><strong><Ink text={chosen && !selectedTaken ? (publicChooser ? t.character + " " + Number(chosen) : requiresName ? displayName.trim() || t.unnamed : ownName) : (language === "ja" ? "未選択" : "Select a portrait")} /></strong>
+                <div aria-live="polite"><strong><Ink text={chosen && !selectedTaken ? (guestPicker ? t.character + " " + Number(chosen) : requiresName ? displayName.trim() || t.unnamed : ownName) : (language === "ja" ? "未選択" : "Select a portrait")} /></strong>
                 </div>
               </div>
               {requiresName && !selectedTaken && <Field label={<Ink text={t.name} />}>
@@ -956,9 +964,9 @@ export function ProjectBoard({ signInPath }: { signInPath: string }) {
             <div className="project-identity">
               <Avatar src={profile ? photo(sets, profile.avatar) : undefined} name={ownName} />
               <div className="island-identity-label"><span><Ink text={board.organizer ? t.organizer : t.portrait} /></span><strong><Ink text={ownName} /></strong></div>
-              {!board.guest && <button type="button" className="island-switch" onClick={editRespondent} aria-label={t.change}>
-                <Ink text={language === "ja" ? "変更" : "Change"} />
-              </button>}
+              <button type="button" className="island-switch" onClick={editRespondent} aria-label={t.change}>
+                <Ink text={board.guest ? t.change : language === "ja" ? "変更" : "Change"} />
+              </button>
             </div>
             {(mode === "propose" || audienceSlot) && <div className="toolbar-audience" role="group" aria-label={t.audience}>
               <strong><Ink text={t.audience} /></strong>
