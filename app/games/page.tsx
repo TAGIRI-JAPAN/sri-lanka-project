@@ -25,7 +25,6 @@ const games = [
     theme: "日本語教育・学校づくり",
     description: "主人公がスリランカの町で小さな日本語教室を始めるシリーズ第1作。授業を組み立て、教室や自習室を増やしながら、旧校舎の地下に残る手がかりを探します。",
     scenes: ["日本語教室での会話練習", "新しい教室と自習室の建設", "旧校舎の地下を調査"],
-    gameplay: true,
   },
   {
     id: "02",
@@ -38,7 +37,6 @@ const games = [
     theme: "職業訓練・高原の交通",
     description: "エッラの高原へ向かった主人公は、現地の仲間と設備整備の訓練を始めます。予算を見ながら通学バスの路線をつなぎ、山に眠る旧鉄道トンネルを調べます。",
     scenes: ["設備整備コースで実習", "通学バスの予算と路線を検討", "旧鉄道トンネルの信号を切り替える"],
-    gameplay: true,
   },
   {
     id: "03",
@@ -51,7 +49,6 @@ const games = [
     theme: "ビルクリーニング・就職支援",
     description: "舞台は海沿いのゴール。主人公はビルクリーニング実習を進めながら、ゴールと大阪の求人を見比べ、訓練を終えた仲間の進路を考えます。城塞の下には古い水路が広がっています。",
     scenes: ["ビルクリーニング実習で道具を選ぶ", "ゴールと大阪の就職先を比較", "城塞地下水路の水門を操作"],
-    gameplay: true,
   },
   {
     id: "04",
@@ -64,7 +61,6 @@ const games = [
     theme: "日本語会話・地元の工房",
     description: "北部のジャフナで、主人公は町の人と日本語の会話クラブを開きます。地元に仕事を生む工房をつくり、風の書庫で島に伝わる仕掛けの謎に挑みます。",
     scenes: ["ジャフナの会話クラブで日本語を練習", "工房を建てて地元の仕事を増やす", "風の書庫で風向きの仕掛けを解く"],
-    gameplay: true,
   },
   {
     id: "05",
@@ -77,7 +73,6 @@ const games = [
     theme: "介護実習・進路選択",
     description: "主人公は介護実習を支え、参加者とスリランカや海外での働き方を考えます。もう一つの舞台は古い水路。忘れられた水門を探し、地域に水が流れる道をたどります。",
     scenes: ["介護実習で車いすの安全確認", "国をまたぐ進路を相談", "古い水路を調べて水門を開く"],
-    gameplay: false,
   },
 ] as const;
 
@@ -140,13 +135,13 @@ function GameCard({ game }: { game: Game }) {
           </figure>;
         })}
       </div>
-      {game.gameplay && <figure className="game-catalog-video">
+      <figure className="game-catalog-video">
         <figcaption>プレイ映像</figcaption>
         <video controls playsInline preload="none" poster={gameAssets + "gameplay-01.webp"}
           aria-label={game.name + "のプレイ映像"}>
           <source src={gameAssets + "gameplay-01.mp4"} type="video/mp4" />
         </video>
-      </figure>}
+      </figure>
     </section>
   </article>;
 }
