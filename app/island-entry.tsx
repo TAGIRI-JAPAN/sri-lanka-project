@@ -1,4 +1,4 @@
-import { CalendarDays, Check, CircleHelp, Compass, Link2, MapPin, Users } from "lucide-react";
+import { CalendarDays, Check, CircleHelp, Link2, MapPin, Users } from "lucide-react";
 import type { Language } from "@/lib/schedule";
 import { Ink } from "./editorial-ink";
 
@@ -79,10 +79,15 @@ export function IslandGuide({ language }: { language: Language }) {
 }
 
 export function IslandFooter({ language }: { language: Language }) {
+  const ja = language === "ja";
   return <footer className="island-footer">
     <div className="island-footer-inner">
-      <div className="island-footer-brand"><Compass size={20} aria-hidden="true" />Sri Lanka Project</div>
-      <p>{language === "ja" ? "日本とスリランカの日程調整" : "Scheduling between Japan and Sri Lanka"}</p>
+      <div className="island-footer-content">
+        <img className="island-footer-brand" src={assets + (ja ? "wordmark-ja.webp" : "wordmark-en.webp")}
+          alt={ja ? "Sri Lankaプロジェクト" : "Sri Lanka Project"}
+          width={ja ? 710 : 720} height={ja ? 387 : 409} loading="lazy" />
+        <p>{ja ? "日本とスリランカの日程調整" : "Scheduling between Japan and Sri Lanka"}</p>
+      </div>
     </div>
   </footer>;
 }

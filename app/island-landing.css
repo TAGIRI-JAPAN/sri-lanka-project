@@ -412,11 +412,74 @@ body:has(.renewed-project) { background: #faf2df; }
 .island-step h3 { margin: 0 0 5px; font-size: 1rem; font-weight: 820; overflow-wrap: anywhere; }
 .island-step p { color: var(--muted); font-size: .88rem; line-height: 1.55; }
 
-.island-footer { border-top: 1px solid #d5c9aa; background: #f3e8cd; color: #364638; }
-.island-footer-inner { min-height: 71px; }
-.island-footer-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; font-weight: 820; }
-.island-footer-brand svg { color: #815233; }
-.island-footer p { font-size: .82rem; text-align: right; }
+.island-footer {
+  position: relative;
+  isolation: isolate;
+  border-top: 1px solid #af8a50;
+  background: linear-gradient(180deg, #17392c, #102c22);
+  color: #fff3d4;
+}
+
+.island-footer::before,
+.island-footer::after {
+  position: absolute;
+  z-index: -1;
+  inset-block: 0;
+  width: min(49%, 486px);
+  background-position: right 48%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  mask-image: linear-gradient(90deg, transparent, #000 68%);
+  opacity: .91;
+  content: "";
+  pointer-events: none;
+}
+
+.island-footer::before {
+  inset-inline-start: 0;
+  background-image: url("/project/island/country-scene-jp.webp");
+  transform: scaleX(-1);
+}
+
+.island-footer::after {
+  inset-inline-end: 0;
+  background-image: url("/project/island/country-scene-lk.webp");
+}
+
+.island-footer-inner {
+  min-height: clamp(94px, 9vw, 116px);
+  justify-content: center;
+  padding-block: 9px;
+}
+
+.island-footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 1.75vw, 22px);
+  max-width: 100%;
+  padding: 4px clamp(11px, 1.6vw, 20px);
+  border: 1px solid #d2b36e8f;
+  border-radius: 11px;
+  background: #102e24ed;
+  box-shadow: 0 3px 0 #0b2119a6, 0 8px 18px #112d225e;
+}
+
+.island-footer-brand {
+  display: block;
+  flex: none;
+  width: clamp(96px, 11.5vw, 140px);
+  height: auto;
+  filter: drop-shadow(0 2px 2px #051710b3);
+}
+
+.island-footer p {
+  padding-inline-start: clamp(10px, 1.75vw, 22px);
+  border-inline-start: 1px solid #c8a9649e;
+  font-size: clamp(.875rem, 1.3vw, 1rem);
+  font-weight: 720;
+  line-height: 1.45;
+}
 
 @media (max-width: 920px) {
   .island-hero-content { width: min(63%, 565px); }
@@ -479,8 +542,11 @@ body:has(.renewed-project) { background: #faf2df; }
   .island-entry-sticker { width: 52px; top: 61px; right: 10px; }
   .island-landing-actions .renewed-invite { grid-template-columns: 1fr; margin-top: 3px; }
   .island-landing-actions .renewed-invite button { justify-self: stretch; }
-  .island-footer-inner { align-items: flex-start; flex-direction: column; gap: 5px; justify-content: center; }
-  .island-footer p { text-align: left; }
+  .island-footer::before, .island-footer::after { width: 64%; }
+  .island-footer-inner { min-height: 96px; }
+  .island-footer-content { gap: 8px; padding-inline: 8px; }
+  .island-footer-brand { width: 92px; }
+  .island-footer p { padding-inline-start: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .island-hero-action { transition: none; }
