@@ -5,10 +5,10 @@ import "./games.css";
 
 export const metadata: Metadata = {
   title: "発売ゲーム | Sri Lankaプロジェクト",
-  description: "日本語教育と職業訓練、スリランカ各地の冒険を描く、架空のSri Lankaプロジェクトシリーズ全5作。",
+  description: "日本語教育と職業訓練、スリランカ各地の冒険を描くSri Lankaプロジェクトシリーズ全5作。",
   openGraph: {
     title: "発売ゲーム | Sri Lankaプロジェクト",
-    description: "5世代のパッケージとゲーム画面で巡る、架空のSri Lankaプロジェクトシリーズ。",
+    description: "5世代のパッケージとゲーム画面で巡るSri Lankaプロジェクトシリーズ。",
     images: [{ url: "/project/games/series/05/scene-3.webp", width: 1250, height: 703 }],
   },
 };
@@ -169,7 +169,6 @@ export default function GamesPage() {
               <img src="/project/games/release-wordmark.webp" alt="発売ゲーム" width={1024} height={252} fetchPriority="high" />
             </h1>
             <p className="game-catalog-tagline">ひとりの主人公が歩く、<br />スリランカの5つの物語。</p>
-            <p className="game-catalog-intro">日本語教室を開くところから、職業訓練、海を越える進路相談へ。スリランカ各地を舞台にした架空のゲームシリーズ。</p>
             <div className="game-catalog-hero-actions">
               <CatalogJumpLink className="game-catalog-hero-action"><Compass size={19} aria-hidden="true" />全5作品を見る</CatalogJumpLink>
               <a className="game-catalog-hero-action game-catalog-hero-action-secondary" href="/games/merch">
@@ -186,7 +185,6 @@ export default function GamesPage() {
       <section id="lineup" className="game-catalog-lineup" tabIndex={-1} aria-labelledby="game-catalog-lineup-title">
         <header className="game-catalog-lineup-head">
           <h2 id="game-catalog-lineup-title">シリーズ全5作品</h2>
-          <p>架空のゲーム企画です。発売日・価格・対応機種は作品設定です。</p>
         </header>
         <nav className="game-catalog-index" aria-label="機種から作品へ移動">
           {games.map(game => <CatalogJumpLink key={game.id} target={"game-" + game.id}>
